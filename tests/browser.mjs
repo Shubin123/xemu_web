@@ -9,8 +9,9 @@ import {createQcow2} from './fixtures/qcow2.js';
 // Match Pages: project subpath, HTTPS-capable localhost, no COOP/COEP headers.
 const root=resolve('web'), prefix='/xemu_web/';
 const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.wasm':'application/wasm','.svg':'image/svg+xml','.json':'application/json'};
+const releaseRequests=[];
 const server=createServer(async(req,res)=>{
-  try{const path=new URL(req.url,'http://localhost').pathname;if(!path.startsWith(prefix)){res.writeHead(404).end();return;}const file=resolve(root,path.slice(prefix.length)||'index.html');if(!file.startsWith(root+'/'))throw Error('path');const bytes=await readFile(file);res.setHeader('Content-Type',mime[extname(file)]||'application/octet-stream');res.end(bytes);}catch{res.writeHead(404).end();}
+  try{const requestUrl=new URL(req.url,'http://localhost');if(requestUrl.searchParams.has('xemu-release'))releaseRequests.push({path:requestUrl.pathname,release:requestUrl.searchParams.get('xemu-release')});const path=requestUrl.pathname;if(!path.startsWith(prefix)){res.writeHead(404).end();return;}const file=resolve(root,path.slice(prefix.length)||'index.html');if(!file.startsWith(root+'/'))throw Error('path');const bytes=await readFile(file);res.setHeader('Content-Type',mime[extname(file)]||'application/octet-stream');res.end(bytes);}catch{res.writeHead(404).end();}
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const url=process.env.TARGET_URL||`http://127.0.0.1:${server.address().port}${prefix}`;
@@ -22,6 +23,14 @@ try{
   await page.waitForFunction(()=>crossOriginIsolated,{},{timeout:30000});
   await page.waitForFunction(()=>!document.getElementById('boot').disabled);
   assert.equal(await page.evaluate(()=>typeof SharedArrayBuffer),'function');
+  const release=await page.evaluate(async()=>{
+    const info=await(await fetch('./release.json')).json();
+    const worker=await(await fetch('./coi-serviceworker.js',{cache:'no-store'})).text();
+    return {info,worker};
+  });
+  assert.match(release.info.release,/^[a-f0-9]{16}$/);
+  assert.ok(release.worker.includes(`const RELEASE = '${release.info.release}'`));
+
   for(const selector of ['.btn-primary','.btn-secondary','.btn-success','.widget-tool','.menu-toggle'])
     assert.equal(await page.locator(selector).first().evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(8, 75, 22)',`${selector} must be dark green`);
   await page.locator('#boot').click();await page.waitForFunction(()=>document.getElementById('status').textContent.includes('MCPX'));
@@ -75,6 +84,9 @@ try{
   assert.ok(result.log.includes(`XEMUWEB:DONE ${result.expected}`),result.log);
   assert.ok(result.snapshots.some(s=>s.name==='pages-test'),'OPFS snapshot missing');
   assert.ok(result.stats.framesConsumed>0,'No frame delivered');
+  await page.locator('#screen').screenshot({path:'tests/engine-framebuffer.png'});
+  if(!process.env.TARGET_URL)for(const asset of ['release.json','src/xemu-core-worker.js','cores/xemu/xemu-core.wasm'])
+    assert.ok(releaseRequests.some(request=>request.path.endsWith(asset)&&request.release===release.info.release),`Unversioned cached asset: ${asset}`);
   assert.deepEqual(errors,[]);
   const failureContext=await browser.newContext({serviceWorkers:'block'});
   try {
