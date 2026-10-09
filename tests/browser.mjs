@@ -44,6 +44,9 @@ try{
   await page.screenshot({path:'tests/mobile.png',fullPage:true});
   const fixture={flash:buildFlash(2000000),checksumHex:expectedChecksum(2000000).toString(16).toUpperCase().padStart(8,'0')};
   const result=await page.evaluate(async({bytes,disk,expected})=>{
+    const {downloadEngine,hideLoading}=await import('./loading.js');
+    const wasmBinary=await downloadEngine();
+    const progress=document.getElementById('progress').value;
     const {XemuHost}=await import('./src/xemu-host.js');const host=new XemuHost({canvas:document.getElementById('screen')});
     const {importFile}=await import('./storage.js');
     const flash=await importFile(new File([new Uint8Array(bytes)],'test-flash.bin'));
@@ -51,11 +54,37 @@ try{
     let rejectRun;
     let log='';const done=new Promise((resolve,reject)=>{rejectRun=reject;host.addEventListener('log',e=>{log+=e.detail.lines.map(l=>l.text).join('\n');if(log.includes('XEMUWEB:DONE'))resolve(log);});host.addEventListener('error',e=>reject(Error(e.detail.message)));host.addEventListener('abort',e=>reject(Error(e.detail.message)));});
     const timer=setTimeout(()=>{rejectRun(Error('Engine timed out'));host.terminate();},60000);
-    try{await host.boot({files:{flash:{opfs:flash.opfs},hdd:{opfs:hdd.opfs,writable:true}},settings:{renderer:'OPENGL'},args:['-debugcon','stdio']});await done;await host.saveSnapshot('pages-test');const snapshots=await host.listSnapshots();await host.loadSnapshot('pages-test');await host.deleteSnapshot('pages-test');return {log,expected,snapshots,stats:host.getStats()};}finally{clearTimeout(timer);host.terminate();}
+    try{await host.boot({wasmBinary,files:{flash:{opfs:flash.opfs},hdd:{opfs:hdd.opfs,writable:true}},settings:{renderer:'OPENGL'},args:['-debugcon','stdio']});await done;await host.saveSnapshot('pages-test');const snapshots=await host.listSnapshots();await host.loadSnapshot('pages-test');await host.deleteSnapshot('pages-test');return {log,expected,snapshots,progress,stats:host.getStats()};}finally{clearTimeout(timer);hideLoading();host.terminate();}
   },{bytes:[...fixture.flash],disk:[...createQcow2()],expected:fixture.checksumHex});
+  assert.equal(result.progress,100,'Engine download must complete the loading bar');
   assert.ok(result.log.includes(`XEMUWEB:DONE ${result.expected}`),result.log);
   assert.ok(result.snapshots.some(s=>s.name==='pages-test'),'OPFS snapshot missing');
   assert.ok(result.stats.framesConsumed>0,'No frame delivered');
   assert.deepEqual(errors,[]);
-  console.log('Browser checks passed: Pages subpath isolation, persisted layout/library, search, touch UI, mobile layout, WebGL2 engine checksum and OPFS snapshot save/load/delete');
+  const failureContext=await browser.newContext({serviceWorkers:'block'});
+  try {
+    const failurePage=await failureContext.newPage();
+    await failurePage.route('**/*',async route=>{const response=await route.fetch();await route.fulfill({response,headers:{...response.headers(),'cross-origin-opener-policy':'same-origin','cross-origin-embedder-policy':'require-corp'}});});
+    await failurePage.goto(url);
+    await failurePage.waitForFunction(()=>crossOriginIsolated&&!document.getElementById('boot').disabled);
+    let downloadArrived,releaseDownload;
+    const arrived=new Promise(resolve=>downloadArrived=resolve);
+    const gate=new Promise(resolve=>releaseDownload=resolve);
+    await failurePage.route('**/cores/xemu/xemu-core.wasm',async route=>{downloadArrived();await gate;await route.fulfill({status:503,body:'Unavailable'});});
+    await failurePage.locator('#mcpx').setInputFiles({name:'generated-test-only.bin',mimeType:'application/octet-stream',buffer:Buffer.alloc(512)});
+    await failurePage.locator('#flash').setInputFiles({name:'generated-test-flash.bin',mimeType:'application/octet-stream',buffer:Buffer.from(fixture.flash)});
+    await failurePage.locator('#hdd').setInputFiles({name:'generated-test-disk.qcow2',mimeType:'application/octet-stream',buffer:Buffer.from(createQcow2())});
+    await failurePage.locator('#boot').click();
+    let arrivalTimer;
+    try{await Promise.race([arrived,new Promise((_,reject)=>{arrivalTimer=setTimeout(()=>reject(Error('Download did not start')),20000);})]);}finally{clearTimeout(arrivalTimer);}
+    assert.ok(await failurePage.locator('#loading-panel').isVisible(),'Loading bar must stay visible while downloading');
+    assert.equal(await failurePage.locator('#loading-label').textContent(),'Downloading engine…');
+    await failurePage.screenshot({path:'tests/loading.png',fullPage:false});
+    releaseDownload();
+    await failurePage.waitForFunction(()=>document.getElementById('status').textContent.includes('HTTP 503'));
+    assert.ok(!await failurePage.locator('#loading-panel').isVisible(),'Failure must clear the loading bar');
+    assert.ok(await failurePage.locator('#boot').isEnabled(),'Failure must allow retry');
+  } finally {await failureContext.close();}
+
+  console.log('Browser checks passed: Pages subpath isolation, persisted layout/library, search, touch UI, mobile layout, loading progress/error recovery, WebGL2 engine checksum and OPFS snapshot save/load/delete');
 }finally{await browser.close();await new Promise(r=>server.close(r));}

@@ -42,6 +42,7 @@ browser storage deletes console files, imported discs, and saves.
 - WebGL2 renderer, 1x–4x resolution, fullscreen with Alt+Enter, and sharp/smooth display filtering.
 - Four gamepads, keyboard controls, rumble and automatic/always/hidden touch controls with two analog sticks.
 - AudioWorklet output, volume and buffer selection, pause/resume/reset, save slots and diagnostics.
+- A green loading bar shows file import and engine download progress, then initialization until the console starts.
 
 Xbox has one display. Azahar's dual-screen sizing and 3DS wireless lobby controls
 are omitted; guest networking is unavailable in this engine. `NULL` is a CPU
@@ -93,3 +94,10 @@ Chrome with WebGL2, OffscreenCanvas, OPFS, WebAssembly SIMD and SharedArrayBuffe
 is the supported target. Actual console BIOS, game graphics and audio compatibility
 remain unverified with user-owned software. See [THIRD_PARTY.md](THIRD_PARTY.md)
 for frontend attribution and the matching engine source.
+
+For an opt-in test with your own local Xbox files, set `XEMU_DISC_PATH`,
+`XEMU_MCPX_PATH`, `XEMU_FLASH_PATH`, and `XEMU_HDD_PATH`, then run
+`npm run test:game`. An optional `XEMU_EEPROM_PATH` supplies your EEPROM.
+Media is opened through browser file inputs in a temporary profile; only ignored
+screenshots and diagnostics are written to `tests/artifacts/`. Inspect those
+screenshots to distinguish game rendering from a console that merely started.

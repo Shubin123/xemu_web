@@ -1,11 +1,12 @@
 import {XemuHost} from './src/xemu-host.js';
 import {readCatalog,writeCatalog,importFile,removeFile,storageSummary} from './storage.js';
 import {installInput} from './input.js';
+import {showLoading,hideLoading,downloadEngine} from './loading.js';
 const $=id=>document.getElementById(id);
 let host, selected, paused=false, busy=false, sound=false;
 let catalog={console:{},discs:[]}, discs=[];
 const status=text=>{$('status').textContent=text;};
-const report=error=>status(error.message||String(error));
+const report=error=>{hideLoading();status(error.message||String(error));};
 function controls() {
   for(const id of ['pause','stop','reset','audio','save','refresh','eject'])$(id).disabled=!host?.memory||busy;
   $('boot').disabled=!!host||busy;
@@ -15,9 +16,9 @@ const action=fn=>async()=>{if(busy)return;busy=true;controls();try{await fn();}c
 function labelFile(kind, name) {document.querySelector(`label[for="${kind}"]`).textContent=name||`Choose ${kind==='hdd'?'hard disk image':kind.toUpperCase()}…`;}
 for(const kind of ['mcpx','flash','hdd','eeprom'])$(kind).onchange=()=>labelFile(kind,$(kind).files[0]?.name||catalog.console[kind]?.name);
 async function copyFile(file, label) {
-  status(`Importing ${label}…`);$('progress').hidden=false;
-  try {return await importFile(file,ratio=>{$('progress').value=ratio*100;});}
-  finally {$('progress').hidden=true;}
+  status(`Importing ${label}…`);showLoading(`Importing ${label}…`,0,'0%');
+  try {return await importFile(file,ratio=>showLoading(`Importing ${label}…`,ratio,`${Math.round(ratio*100)}%`));}
+  finally {hideLoading();}
 }
 async function updateStorage() {try{$('storage').textContent=`Files saved on this device. ${await storageSummary()}`;}catch{$('storage').textContent='Browser storage unavailable.';}}
 async function prepareConsole() {
@@ -39,19 +40,22 @@ async function prepareConsole() {
   return files;
 }
 async function bootConsole(){
+  showLoading('Preparing console…');
   await window.xemuIsolationReady;
   if(!crossOriginIsolated)throw Error('Browser threads are unavailable. Reload the page or use a browser that allows the isolation service worker.');
   const files=await prepareConsole();if(selected)files.disc=selected.file||{opfs:selected.opfs};
+  const wasmBinary=await downloadEngine();
+  showLoading('Initializing engine…');
   status('Starting console…');host=new XemuHost({canvas:$('screen')});
   const current=host;
   for(const type of ['error','abort'])current.addEventListener(type,e=>{if(current!==host)return;report(e.detail);shutdown();});
   current.addEventListener('exited',e=>{if(current!==host)return;status(`Console exited (${e.detail.status})`);shutdown();});
-  current.addEventListener('started',()=>{if(current===host){status('Console running');controls();}});
+  current.addEventListener('started',()=>{if(current===host){hideLoading();status('Console running');controls();}});
   current.addEventListener('log',e=>{$('logs').textContent=($('logs').textContent+e.detail.lines.map(l=>l.text).join('\n')+'\n').slice(-20000);});
-  try{await current.boot({files,settings:{renderer:$('renderer').value,memory:$('memory').value,surfaceScale:Number($('scale').value)}});}catch(e){shutdown();throw e;}
+  try{await current.boot({files,wasmBinary,settings:{renderer:$('renderer').value,memory:$('memory').value,surfaceScale:Number($('scale').value)}});}catch(e){shutdown();throw e;}
 }
 $('boot').onclick=action(bootConsole);
-function shutdown() {host?.terminate();host=null;paused=false;sound=false;clearInput();$('pause').textContent='Pause';$('audio').textContent='Enable audio';controls();}
+function shutdown() {hideLoading();host?.terminate();host=null;paused=false;sound=false;clearInput();$('pause').textContent='Pause';$('audio').textContent='Enable audio';controls();}
 $('stop').onclick=()=>{shutdown();status('Console off');};
 $('pause').onclick=action(async()=>{if(paused)await host.resume();else await host.pause();paused=!paused;$('pause').textContent=paused?'▶ Run / Resume':'Pause';status(paused?'Console paused':'Console running');});
 $('reset').onclick=action(()=>host.reset());
@@ -105,5 +109,7 @@ window.addEventListener('beforeunload',()=>host?.terminate());
 busy=true;controls();
 try{catalog=await readCatalog();discs=[...catalog.discs];for(const [kind,entry]of Object.entries(catalog.console))labelFile(kind,entry.name);await updateStorage();}catch(e){report(e);}
 busy=false;controls();renderLibrary();
+showLoading('Setting up browser threads…');
 await window.xemuIsolationReady;
+hideLoading();
 if(!crossOriginIsolated)status('Browser threads need a reload after isolation setup. If this persists, allow the site service worker or use Chrome.');

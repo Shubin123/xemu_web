@@ -1069,3 +1069,17 @@ a{color:#9bf00b}a:hover{color:#c2ff78}
     opacity:1;
 }
 .touch-button.pressed{background:#107c10;border-color:#9bf00b}
+
+.loading-panel{margin-top:12px;padding:12px 14px;border:1px solid #26743a;border-radius:6px;background:#111b12;text-align:left}
+.loading-heading{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px;font-size:.8rem}
+#loading-label{color:#e0f3d5;overflow-wrap:anywhere}
+#loading-detail{color:#9bf00b;font-variant-numeric:tabular-nums;flex-shrink:0;font-size:.75rem}
+#progress{appearance:none;width:100%;height:12px;display:block;border:1px solid #26743a;border-radius:6px;overflow:hidden;background:#080b08;color:#9bf00b}
+#progress::-webkit-progress-bar{background:#080b08;border-radius:6px}
+#progress::-webkit-progress-value{background:linear-gradient(90deg,#107c10,#9bf00b);border-radius:6px}
+#progress::-moz-progress-bar{background:linear-gradient(90deg,#107c10,#9bf00b);border-radius:6px}
+#progress:indeterminate{background:linear-gradient(90deg,#080b08 0%,#107c10 30%,#9bf00b 45%,#107c10 60%,#080b08 100%);background-size:200% 100%;animation:loading-slide 1.4s linear infinite}
+#progress:indeterminate::-webkit-progress-bar{background:transparent}
+@keyframes loading-slide{from{background-position:100% 0}to{background-position:-100% 0}}
+@media(prefers-reduced-motion:reduce){#progress:indeterminate{animation:none;background-position:50% 0}}
+@media(max-width:480px){.loading-heading{align-items:flex-start;flex-direction:column;gap:4px}}

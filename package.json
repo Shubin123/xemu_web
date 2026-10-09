@@ -10,7 +10,8 @@
     "import:runtime": "node tools/import-runtime.mjs",
     "test": "node tests/smoke.mjs",
     "test:browser": "node tests/browser.mjs",
-    "test:source": "node tests/source.mjs"
+    "test:source": "node tests/source.mjs",
+    "test:game": "node tests/real-game.mjs"
   },
   "devDependencies": {
     "playwright-core": "1.64.0"
