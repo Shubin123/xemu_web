@@ -1,4 +1,4 @@
-import {cpSync,mkdirSync,existsSync,readFileSync,rmSync,writeFileSync} from 'node:fs';
+import {cpSync,mkdirSync,existsSync,readFileSync,rmSync,writeFileSync,readdirSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createHash} from 'node:crypto';
 const root=resolve('runtime');
@@ -9,5 +9,17 @@ const wasm=readFileSync('runtime/cores/xemu/xemu-core.wasm');
 if(!WebAssembly.validate(wasm)||manifest.coreId!==`sha256:${createHash('sha256').update(wasm).digest('hex')}`)throw Error('Invalid WebAssembly core');
 rmSync('web',{recursive:true,force:true});mkdirSync('web',{recursive:true});
 cpSync('app','web',{recursive:true});cpSync('runtime/src','web/src',{recursive:true});cpSync('runtime/cores','web/cores',{recursive:true});cpSync('runtime/source','web/source',{recursive:true});cpSync('runtime/runtime.json','web/runtime.json');
+// Content versions prevent an old stylesheet or entry script from surviving a deploy.
+for(const file of readdirSync('web').filter(name=>name.endsWith('.html'))){
+  const path=`web/${file}`;
+  const html=readFileSync(path,'utf8').replace(/(href|src)="([^"?#]+)(?:\?[^"#]*)?"/g,(match,attribute,url)=>{
+    if(/^(?:https?:|data:|\/)/.test(url)||!(/\.(?:css|js|svg)$/.test(url)))return match;
+    const asset=resolve('web',url);
+    if(!existsSync(asset))return match;
+    const version=createHash('sha256').update(readFileSync(asset)).digest('hex').slice(0,12);
+    return `${attribute}="${url}?v=${version}"`;
+  });
+  writeFileSync(path,html);
+}
 writeFileSync('web/.nojekyll','');
 console.log(`Built self-contained web/ · ${manifest.coreId}`);

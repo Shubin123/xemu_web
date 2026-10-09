@@ -3,7 +3,7 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 const page=readFileSync('web/index.html','utf8');
-for(const match of page.matchAll(/(?:src|href)="([^"#]+)"/g)){if(/^(https?:|data:)/.test(match[1]))continue;assert.ok(readFileSync(join('web',match[1])).length,match[1]);}
+for(const match of page.matchAll(/(?:src|href)="([^"#]+)"/g)){if(/^(https?:|data:)/.test(match[1]))continue;assert.ok(readFileSync(join('web',match[1].split('?')[0])).length,match[1]);}
 const record=JSON.parse(readFileSync('web/runtime.json'));
 for(const f of record.files){const bytes=readFileSync(join('web',f.path));assert.equal(createHash('sha256').update(bytes).digest('hex'),f.sha256,f.path);}
 assert.ok(WebAssembly.validate(readFileSync('web/cores/xemu/xemu-core.wasm')));

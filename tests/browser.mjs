@@ -22,6 +22,8 @@ try{
   await page.waitForFunction(()=>crossOriginIsolated,{},{timeout:30000});
   await page.waitForFunction(()=>!document.getElementById('boot').disabled);
   assert.equal(await page.evaluate(()=>typeof SharedArrayBuffer),'function');
+  for(const selector of ['.btn-primary','.btn-secondary','.btn-success','.widget-tool','.menu-toggle'])
+    assert.equal(await page.locator(selector).first().evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(8, 75, 22)',`${selector} must be dark green`);
   await page.locator('#boot').click();await page.waitForFunction(()=>document.getElementById('status').textContent.includes('MCPX'));
   await page.locator('#btn-layout-menu').click();await page.locator('#layout-widget-width').fill('300');await page.locator('#layout-widget-width').dispatchEvent('input');
   await page.locator('#btn-layout-menu-close').click();

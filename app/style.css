@@ -1053,3 +1053,19 @@ a{color:#9bf00b}a:hover{color:#c2ff78}
 .btn-primary{background:#107c10;color:#fff}
 .touch-button.pressed,.touch-stick.is-active .touch-stick-knob{background:#107c10;color:#fff}
 .filter-pill.active{background:#107c10;color:#fff}
+
+/* Consistent dark-green buttons across the Xbox interface. */
+.btn-primary,.btn-secondary,.btn-success,.btn-danger,.library-action,
+.widget-tool,.menu-toggle,.stage-fullscreen-btn,.touch-button,.file-label{
+    background:#084b16;
+    color:#f2f8ef;
+    border-color:#26743a;
+}
+.btn:hover:not(:disabled),.library-action:hover:not(:disabled),
+.widget-tool:hover,.menu-toggle:hover,.stage-fullscreen-btn:hover,
+.touch-button:hover,.file-label:hover{
+    background:#0b6120;
+    border-color:#9bf00b;
+    opacity:1;
+}
+.touch-button.pressed{background:#107c10;border-color:#9bf00b}
