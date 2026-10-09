@@ -11,7 +11,8 @@
     "test": "node tests/smoke.mjs",
     "test:browser": "node tests/browser.mjs",
     "test:source": "node tests/source.mjs",
-    "test:game": "node tests/real-game.mjs"
+    "test:game": "node tests/real-game.mjs",
+    "prepare:game": "node tools/prepare-game.mjs"
   },
   "devDependencies": {
     "playwright-core": "1.64.0"

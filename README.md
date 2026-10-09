@@ -101,3 +101,30 @@ For an opt-in test with your own local Xbox files, set `XEMU_DISC_PATH`,
 Media is opened through browser file inputs in a temporary profile; only ignored
 screenshots and diagnostics are written to `tests/artifacts/`. Inspect those
 screenshots to distinguish game rendering from a console that merely started.
+
+## Prepare the local NBA Live 2002 test
+
+```sh
+npm run prepare:game
+npm run prepare:game -- --mcpx=/path/mcpx_1.0.bin --flash=/path/bios.bin
+npm run build
+npm run test:game
+```
+
+Preparation defaults to `~/Downloads/NBA Live 2002 (USA).iso` and prepares the
+[official open-source Xbox HDD](https://xemu.app/docs/required-files/#hard-disk-image)
+as `~/Downloads/xemu-test-hdd.qcow2` if needed. The download is pinned and checked
+by SHA-256. Your MCPX dump and compatible BIOS remain required; see
+[xemu's required files](https://xemu.app/docs/required-files/). Preparation checks
+the Xbox disc header, MCPX size/checksum, BIOS size, and qcow2 header. BIOS size
+validation alone does not establish compatibility.
+
+Local paths are kept in ignored `tests/artifacts/game-inputs.json`. The game test
+uses that manifest, saves page screenshots, captures the actual canvas separately,
+and reports nonblack pixel counts. A missing input, boot failure, or completely
+black captures fails the test. Nonblack pixels still need visual review to confirm
+they show the game rather than a BIOS splash or error screen.
+
+The live site's Log panel has **Download debug trace** and **Capture framebuffer**
+for equivalent diagnostics. Console files must be selected there once per browser;
+the website cannot read local paths from the test manifest.
