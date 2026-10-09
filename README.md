@@ -37,7 +37,7 @@ browser storage deletes console files, imported discs, and saves.
 
 ## Azahar-style interface
 
-- Same navy/red palette, raised cards, screen panel and searchable library table.
+- Xbox green, black and charcoal palette with Azahar’s raised cards, screen panel and searchable library table.
 - Movable, resizable, collapsible and hideable widgets with a persisted layout drawer.
 - WebGL2 renderer, 1x–4x resolution, fullscreen with Alt+Enter, and sharp/smooth display filtering.
 - Four gamepads, keyboard controls, rumble and automatic/always/hidden touch controls with two analog sticks.
