@@ -79,6 +79,7 @@ try{
     try{await Promise.race([arrived,new Promise((_,reject)=>{arrivalTimer=setTimeout(()=>reject(Error('Download did not start')),20000);})]);}finally{clearTimeout(arrivalTimer);}
     assert.ok(await failurePage.locator('#loading-panel').isVisible(),'Loading bar must stay visible while downloading');
     assert.equal(await failurePage.locator('#loading-label').textContent(),'Downloading engine…');
+    assert.ok(await failurePage.locator('#loading-panel').evaluate(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth;}),'Loading bar must stay inside the visible viewport');
     await failurePage.screenshot({path:'tests/loading.png',fullPage:false});
     releaseDownload();
     await failurePage.waitForFunction(()=>document.getElementById('status').textContent.includes('HTTP 503'));

@@ -44,6 +44,7 @@ async function bootConsole(){
   await window.xemuIsolationReady;
   if(!crossOriginIsolated)throw Error('Browser threads are unavailable. Reload the page or use a browser that allows the isolation service worker.');
   const files=await prepareConsole();if(selected)files.disc=selected.file||{opfs:selected.opfs};
+  status('Downloading engine…');
   const wasmBinary=await downloadEngine();
   showLoading('Initializing engine…');
   status('Starting console…');host=new XemuHost({canvas:$('screen')});

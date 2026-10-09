@@ -1083,3 +1083,5 @@ a{color:#9bf00b}a:hover{color:#c2ff78}
 @keyframes loading-slide{from{background-position:100% 0}to{background-position:-100% 0}}
 @media(prefers-reduced-motion:reduce){#progress:indeterminate{animation:none;background-position:50% 0}}
 @media(max-width:480px){.loading-heading{align-items:flex-start;flex-direction:column;gap:4px}}
+/* Keep startup/import progress visible even when the setup cards are scrolled. */
+.loading-panel{position:fixed;z-index:1000;bottom:max(16px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(560px,calc(100vw - 32px));margin:0;box-shadow:0 8px 30px #0009}
