@@ -25,6 +25,15 @@ try{
   for(const selector of ['.btn-primary','.btn-secondary','.btn-success','.widget-tool','.menu-toggle'])
     assert.equal(await page.locator(selector).first().evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(8, 75, 22)',`${selector} must be dark green`);
   await page.locator('#boot').click();await page.waitForFunction(()=>document.getElementById('status').textContent.includes('MCPX'));
+  assert.match(await page.locator('#logs').textContent(), /console-files.*mcpx.*flash.*hdd/);
+  const traceDownload=page.waitForEvent('download');
+  await page.locator('#export-debug').click();
+  assert.equal((await traceDownload).suggestedFilename(),'xemu-debug.json');
+  const frameDownload=page.waitForEvent('download');
+  await page.locator('#capture-frame').click();
+  assert.equal((await frameDownload).suggestedFilename(),'xemu-framebuffer.png');
+  assert.match(await page.locator('#logs').textContent(), /framebuffer.*"nonblackPixels":0.*"receivedFrames":0/);
+  await page.locator('#clear-log').click();assert.equal(await page.locator('#logs').textContent(),'');
   await page.locator('#btn-layout-menu').click();await page.locator('#layout-widget-width').fill('300');await page.locator('#layout-widget-width').dispatchEvent('input');
   await page.locator('#btn-layout-menu-close').click();
   await page.locator('[data-widget="audio"] .widget-tool-collapse').click();assert.equal(await page.locator('[data-widget="audio"]').evaluate(e=>e.classList.contains('is-collapsed')),true);

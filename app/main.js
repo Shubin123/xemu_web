@@ -2,11 +2,15 @@ import {XemuHost} from './src/xemu-host.js';
 import {readCatalog,writeCatalog,importFile,removeFile,storageSummary} from './storage.js';
 import {installInput} from './input.js';
 import {showLoading,hideLoading,downloadEngine} from './loading.js';
+import {createDebugTrace} from './debug.js';
 const $=id=>document.getElementById(id);
 let host, selected, paused=false, busy=false, sound=false;
 let catalog={console:{},discs:[]}, discs=[];
+const debug=createDebugTrace({log:$('logs'),canvas:$('screen'),getStats:()=>host?.getStats()||null});
+$('export-debug').onclick=()=>debug.export();
+$('capture-frame').onclick=()=>debug.capture().catch(report);
 const status=text=>{$('status').textContent=text;};
-const report=error=>{hideLoading();status(error.message||String(error));};
+const report=error=>{hideLoading();debug.record('error',{message:error.message||String(error),stack:error.stack||null});status(error.message||String(error));};
 function controls() {
   for(const id of ['pause','stop','reset','audio','save','refresh','eject'])$(id).disabled=!host?.memory||busy;
   $('boot').disabled=!!host||busy;
@@ -22,8 +26,9 @@ async function copyFile(file, label) {
 }
 async function updateStorage() {try{$('storage').textContent=`Files saved on this device. ${await storageSummary()}`;}catch{$('storage').textContent='Browser storage unavailable.';}}
 async function prepareConsole() {
-  if(!catalog.console.mcpx&&!$('mcpx').files[0]||!catalog.console.flash&&!$('flash').files[0])throw Error('Select an MCPX boot ROM and flash BIOS');
-  if(!catalog.console.hdd&&!$('hdd').files[0])throw Error('Select a qcow2 hard disk image');
+  const missing=['mcpx','flash','hdd'].filter(kind=>!catalog.console[kind]&&!$(kind).files[0]);
+  debug.record('console-files',{missing,present:['mcpx','flash','hdd','eeprom'].filter(kind=>catalog.console[kind]||$(kind).files[0])});
+  if(missing.length)throw Error(`Missing console files: ${missing.map(kind=>({mcpx:'MCPX boot ROM',flash:'flash BIOS',hdd:'qcow2 hard disk image'})[kind]).join(', ')}. Select them in Console Files before running the disc.`);
   for(const kind of ['mcpx','flash','hdd','eeprom']) {
     const file=$(kind).files[0];if(!file)continue;
     if(kind==='hdd') {
@@ -40,6 +45,7 @@ async function prepareConsole() {
   return files;
 }
 async function bootConsole(){
+  debug.record('boot-request',{disc:selected?.name||null,cached:!!selected?.opfs,isolated:crossOriginIsolated,renderer:$('renderer').value});
   showLoading('Preparing console…');
   await window.xemuIsolationReady;
   if(!crossOriginIsolated)throw Error('Browser threads are unavailable. Reload the page or use a browser that allows the isolation service worker.');
@@ -49,6 +55,14 @@ async function bootConsole(){
   showLoading('Initializing engine…');
   status('Starting console…');host=new XemuHost({canvas:$('screen')});
   const current=host;
+  for(const type of ['ready','started','diag','notification','exited','resize'])current.addEventListener(type,e=>{
+    if(current!==host)return;
+    const detail=type==='ready'?{loadMs:e.detail.loadMs}:e.detail;
+    debug.record(type,detail);
+  });
+  let firstFrame=false;
+  current.addEventListener('present',e=>{if(!firstFrame&&current===host){firstFrame=true;debug.record('first-frame',e.detail);}});
+  setTimeout(()=>{if(current===host&&!firstFrame)debug.record('no-frame',{elapsedSeconds:15,stats:current.getStats()});},15000);
   for(const type of ['error','abort'])current.addEventListener(type,e=>{if(current!==host)return;report(e.detail);shutdown();});
   current.addEventListener('exited',e=>{if(current!==host)return;status(`Console exited (${e.detail.status})`);shutdown();});
   current.addEventListener('started',()=>{if(current===host){hideLoading();status('Console running');controls();}});
@@ -73,7 +87,7 @@ $('filtering').onchange=filtering;filtering();$('volume-value').textContent=`${M
 async function fullscreen(){if(document.fullscreenElement)await document.exitFullscreen();else await $('screen-stage').requestFullscreen();}
 $('fullscreen').onclick=$('stage-fullscreen').onclick=$('exit-fullscreen').onclick=()=>fullscreen().catch(report);
 window.addEventListener('keydown',e=>{if(e.altKey&&e.code==='Enter'){e.preventDefault();fullscreen().catch(report);}});
-$('clear-log').onclick=()=>{$('logs').textContent='';};
+$('clear-log').onclick=()=>debug.clear();
 $('browse-library').onclick=()=>{$('library-section').scrollIntoView({behavior:'smooth'});$('library-search').focus({preventScroll:true});};
 $('keymap-toggle').onclick=()=>{const card=document.querySelector('[data-widget="keymap"]');window.XemuLayout.show('keymap');card.scrollIntoView({behavior:'smooth'});};
 $('discs').onchange=()=>{for(const file of $('discs').files)discs.push({id:crypto.randomUUID(),name:file.name,size:file.size,added:Date.now(),file});$('discs').value='';renderLibrary();};
