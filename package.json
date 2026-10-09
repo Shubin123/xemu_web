@@ -1,1 +1,11 @@
-{"name":"xemu-web","version":"0.1.0","private":true,"type":"module","license":"GPL-2.0-or-later","scripts":{"build":"node tools/build.mjs","start":"node ../xemu_emscripten/tools/serve.mjs --root=web"}}
+{
+  "name": "xemu-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "GPL-2.0-or-later",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "start": "node tools/serve.mjs"
+  }
+}
