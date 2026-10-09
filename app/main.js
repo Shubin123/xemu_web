@@ -28,6 +28,7 @@ $('boot').onclick = action(async () => {
   if (selected) files.disc = selected;
   status('Starting console…');
   $('boot').disabled = true;
+  connected = [true,false,false,false];
   host = new XemuHost({canvas:$('screen')});
   for (const event of ['error','abort']) host.addEventListener(event,e => { report(e.detail); shutdown(); });
   host.addEventListener('exited',e => { status(`Console exited (${e.detail.status})`); shutdown(); });
@@ -36,7 +37,7 @@ $('boot').onclick = action(async () => {
   try { await host.boot({files,settings:{surfaceScale:Number($('scale').value)}}); }
   catch(e) { shutdown(); throw e; }
 });
-function shutdown() { host?.terminate(); host = null; paused = false; $('pause').textContent='Pause'; controls(false); }
+function shutdown() { host?.terminate(); host = null; paused = false; $('pause').textContent='Pause'; $('audio').textContent='Enable audio'; controls(false); }
 $('stop').onclick = () => { shutdown(); status('Console off'); };
 $('pause').onclick = action(async () => { if(paused) await host.resume(); else await host.pause(); paused=!paused; $('pause').textContent=paused?'Resume':'Pause'; status(paused?'Console paused':'Console running'); });
 $('audio').onclick = action(async () => { await host.startAudio({volume:Number($('volume').value)}); $('audio').textContent='Audio enabled'; });
