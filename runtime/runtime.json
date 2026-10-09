@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "backend": "Shubin123/xemu_emscripten",
-  "backendCommit": "e0c0270dc59308cd3b9b80ce2c9a9e7ce1558d5a",
-  "sourceArchiveSha256": "455d6b032bf1b7976d8b0186d5d2c946daf1a1ce7a0dea4dbbe2535a36735a28",
+  "backendCommit": "c4d766ebbf6e3d842d61b344f38a50816ed7c85c",
+  "sourceArchiveSha256": "2380badf5850de8436f3b1ee3efdaab2ef916f8d3d8c2fed5099e8bcab544fd0",
   "coreId": "sha256:4d47d83563010dce6ef0f8eebd4550e3152f4934887111a6b9556b060eedef7a",
   "files": [
     {
@@ -23,17 +23,17 @@
     {
       "path": "source/xemu-source.tar.gz.part00",
       "size": 33554432,
-      "sha256": "968d2a5acbd30410d55968b4e53c9fb7ff06af695346b2c4af00198fb9d7ad09"
+      "sha256": "87880345d6039c730a831af32bee023d266fd3eca8f5744fb9f023f9d4e39f92"
     },
     {
       "path": "source/xemu-source.tar.gz.part01",
       "size": 33554432,
-      "sha256": "f6698af10918dd0a1ef55ce75dfe02a8010ce61b8caa8a3cf7732627af9dc1a1"
+      "sha256": "1f6c54887d9a7dae9bf83b4746a0175a0961525f164cfe8a61416a28b0cef139"
     },
     {
       "path": "source/xemu-source.tar.gz.part02",
-      "size": 25552342,
-      "sha256": "dec4cd85e50a9cc2d9350dd6b48c4e214719f6403d97ccdc40a0642d81eef5d4"
+      "size": 25552413,
+      "sha256": "6044e6646d019e456385d4a0f4b11e4da2fc78d5ca707606a5f2c46f79931bd9"
     },
     {
       "path": "src/xemu-audio-worklet.js",
@@ -42,13 +42,13 @@
     },
     {
       "path": "src/xemu-config.js",
-      "size": 3092,
-      "sha256": "505e60638438bd7ea1ba63a5c5a1ec4ec8be6035ce9bb1da9a4e5857d6b2b35d"
+      "size": 3137,
+      "sha256": "606923cb4a3e71da5fd4f40546e2374721771be0678bd9bea6b575a90e88634d"
     },
     {
       "path": "src/xemu-core-worker.js",
-      "size": 7957,
-      "sha256": "42024d1b8fbbc62aee4a93507a23914462afac1a10cb9e7c15e3717035be5001"
+      "size": 8108,
+      "sha256": "bb01dee5a16f58241ef13966b87d737e5245eb4f17cee7038d793fce7f18a4db"
     },
     {
       "path": "src/xemu-host.js",

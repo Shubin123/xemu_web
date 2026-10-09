@@ -54,7 +54,13 @@ try{
     let rejectRun;
     let log='';const done=new Promise((resolve,reject)=>{rejectRun=reject;host.addEventListener('log',e=>{log+=e.detail.lines.map(l=>l.text).join('\n');if(log.includes('XEMUWEB:DONE'))resolve(log);});host.addEventListener('error',e=>reject(Error(e.detail.message)));host.addEventListener('abort',e=>reject(Error(e.detail.message)));});
     const timer=setTimeout(()=>{rejectRun(Error('Engine timed out'));host.terminate();},60000);
-    try{await host.boot({wasmBinary,files:{flash:{opfs:flash.opfs},hdd:{opfs:hdd.opfs,writable:true}},settings:{renderer:'OPENGL'},args:['-debugcon','stdio']});await done;await host.saveSnapshot('pages-test');const snapshots=await host.listSnapshots();await host.loadSnapshot('pages-test');await host.deleteSnapshot('pages-test');return {log,expected,snapshots,progress,stats:host.getStats()};}finally{clearTimeout(timer);hideLoading();host.terminate();}
+    try{await host.boot({wasmBinary,files:{flash:{opfs:flash.opfs},hdd:{opfs:hdd.opfs,writable:true}},settings:{renderer:'OPENGL'},args:['-debugcon','stdio']});await done;
+      // Large files take the lazy WORKERFS path; reinsert the same apostrophe
+      // filename to exercise unique mounts rather than colliding with the old one.
+      const disc=new File([new Uint8Array(17*1024*1024)], "Tony Hawk's test.iso");
+      await host.loadDisc(disc,disc.name);await host.ejectDisc();
+      await host.loadDisc(disc,disc.name);await host.ejectDisc();
+      await host.saveSnapshot('pages-test');const snapshots=await host.listSnapshots();await host.loadSnapshot('pages-test');await host.deleteSnapshot('pages-test');return {log,expected,snapshots,progress,stats:host.getStats()};}finally{clearTimeout(timer);hideLoading();host.terminate();}
   },{bytes:[...fixture.flash],disk:[...createQcow2()],expected:fixture.checksumHex});
   assert.equal(result.progress,100,'Engine download must complete the loading bar');
   assert.ok(result.log.includes(`XEMUWEB:DONE ${result.expected}`),result.log);

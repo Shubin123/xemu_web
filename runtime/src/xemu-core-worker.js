@@ -136,7 +136,7 @@ async function boot(msg) {
   if (files.eeprom) await placeFile(files.eeprom, CORE_PATHS.eeprom);
   let disc = '';
   if (files.disc) {
-    disc = `${CORE_PATHS.media}/${files.disc.name || 'disc.iso'}`;
+    disc = nextDiscPath();
     await placeFile(files.disc, disc);
   }
   FS.writeFile(CORE_PATHS.config, buildConfigToml(msg.settings || {}, {...present, disc}));
@@ -186,10 +186,14 @@ function command(msg) {
   }
 }
 
+// Each insertion gets its own mount: WORKERFS and OPFS handles can remain open
+// while QEMU releases the previous disc. User filenames never become FS paths.
+let discSerial = 0;
+function nextDiscPath() { return `${CORE_PATHS.media}/disc-${++discSerial}.iso`; }
+
 // Places a file in the running core (e.g. a disc picked after boot).
 async function mount(msg) {
-  const path = `${CORE_PATHS.media}/${msg.name}`;
-  try { FS.unlink(path); } catch (e) { /* absent */ }
+  const path = nextDiscPath();
   await placeFile(msg.file, path);
   send({type: 'mounted', id: msg.id, path});
 }

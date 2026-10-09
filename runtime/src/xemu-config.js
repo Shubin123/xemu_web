@@ -28,7 +28,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   filtering: 'linear',
 });
 
-const quote = value => `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+// TOML basic strings use the same escapes as JSON for paths and control bytes.
+const quote = value => JSON.stringify(String(value));
 
 /**
  * @param {object} settings  Subset of DEFAULT_SETTINGS
