@@ -6,6 +6,13 @@
   "license": "GPL-2.0-or-later",
   "scripts": {
     "build": "node tools/build.mjs",
-    "start": "node tools/serve.mjs"
+    "start": "node tools/serve.mjs",
+    "import:runtime": "node tools/import-runtime.mjs",
+    "test": "node tests/smoke.mjs",
+    "test:browser": "node tests/browser.mjs",
+    "test:source": "node tests/source.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.64.0"
   }
 }

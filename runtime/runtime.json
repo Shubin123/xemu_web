@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "backend": "Shubin123/xemu_emscripten",
+  "backendCommit": "e0c0270dc59308cd3b9b80ce2c9a9e7ce1558d5a",
+  "sourceArchiveSha256": "455d6b032bf1b7976d8b0186d5d2c946daf1a1ce7a0dea4dbbe2535a36735a28",
+  "coreId": "sha256:4d47d83563010dce6ef0f8eebd4550e3152f4934887111a6b9556b060eedef7a",
+  "files": [
+    {
+      "path": "cores/xemu/xemu-core.build.json",
+      "size": 667,
+      "sha256": "899f07bc81fb17964e5daa56b315dfc5b801113835df1de73ce2f746e08125d5"
+    },
+    {
+      "path": "cores/xemu/xemu-core.js",
+      "size": 294214,
+      "sha256": "2b5769f4dc546ad53c0dff1d0b420a1854af58467aff0239b1e62f59e6e53404"
+    },
+    {
+      "path": "cores/xemu/xemu-core.wasm",
+      "size": 11752489,
+      "sha256": "4d47d83563010dce6ef0f8eebd4550e3152f4934887111a6b9556b060eedef7a"
+    },
+    {
+      "path": "source/xemu-source.tar.gz.part00",
+      "size": 33554432,
+      "sha256": "968d2a5acbd30410d55968b4e53c9fb7ff06af695346b2c4af00198fb9d7ad09"
+    },
+    {
+      "path": "source/xemu-source.tar.gz.part01",
+      "size": 33554432,
+      "sha256": "f6698af10918dd0a1ef55ce75dfe02a8010ce61b8caa8a3cf7732627af9dc1a1"
+    },
+    {
+      "path": "source/xemu-source.tar.gz.part02",
+      "size": 25552342,
+      "sha256": "dec4cd85e50a9cc2d9350dd6b48c4e214719f6403d97ccdc40a0642d81eef5d4"
+    },
+    {
+      "path": "src/xemu-audio-worklet.js",
+      "size": 2817,
+      "sha256": "ae731c351974f4fb7e8f8e13eced0bfafaf638e370666dec85794ccbf1d7ca34"
+    },
+    {
+      "path": "src/xemu-config.js",
+      "size": 3092,
+      "sha256": "505e60638438bd7ea1ba63a5c5a1ec4ec8be6035ce9bb1da9a4e5857d6b2b35d"
+    },
+    {
+      "path": "src/xemu-core-worker.js",
+      "size": 7957,
+      "sha256": "42024d1b8fbbc62aee4a93507a23914462afac1a10cb9e7c15e3717035be5001"
+    },
+    {
+      "path": "src/xemu-host.js",
+      "size": 11559,
+      "sha256": "faf9c6d407693639ae270daf65379a89861bd9813fd9bf4aae89930e551ca8ff"
+    },
+    {
+      "path": "src/xemu-opfs-fs.js",
+      "size": 4548,
+      "sha256": "dca2b692130a57ea3c4be0781380a16f366dfd4cad72ebec2830e90dea0035ec"
+    }
+  ]
+}

@@ -3,7 +3,7 @@ import {createReadStream} from 'node:fs';
 import {stat} from 'node:fs/promises';
 import {resolve,extname,sep} from 'node:path';
 const root=resolve('web');
-const mime={'.html':'text/html','.css':'text/css','.js':'text/javascript','.wasm':'application/wasm','.json':'application/json'};
+const mime={'.html':'text/html','.css':'text/css','.js':'text/javascript','.wasm':'application/wasm','.json':'application/json','.svg':'image/svg+xml'};
 const server=createServer(async(req,res)=>{
   res.setHeader('Cross-Origin-Opener-Policy','same-origin');
   res.setHeader('Cross-Origin-Embedder-Policy','require-corp');
