@@ -13,7 +13,7 @@ const server=createServer(async(req,res)=>{
   try{const path=new URL(req.url,'http://localhost').pathname;if(!path.startsWith(prefix)){res.writeHead(404).end();return;}const file=resolve(root,path.slice(prefix.length)||'index.html');if(!file.startsWith(root+'/'))throw Error('path');const bytes=await readFile(file);res.setHeader('Content-Type',mime[extname(file)]||'application/octet-stream');res.end(bytes);}catch{res.writeHead(404).end();}
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
-const url=`http://127.0.0.1:${server.address().port}${prefix}`;
+const url=process.env.TARGET_URL||`http://127.0.0.1:${server.address().port}${prefix}`;
 const browser=await chromium.launch({executablePath:chromePath(),headless:true,args:['--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
 try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}), errors=[];

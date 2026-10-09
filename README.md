@@ -81,6 +81,7 @@ recorded in `runtime/runtime.json` and the engine build record.
 npm test              # artifact inventory, relative URLs, WASM, media exclusion
 npm run test:browser  # system Chrome; override with CHROME_PATH
 npm run test:source   # offline reconstruction from the public source archive
+TARGET_URL=https://shubin123.github.io/xemu_web/ npm run test:browser # live Pages checks
 ```
 
 Browser tests simulate Pages without isolation headers and exercise the service
