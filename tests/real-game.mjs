@@ -25,7 +25,8 @@ try {
   for(let i=0;i<3;i++) {
     await page.waitForTimeout(10000);
     await page.screenshot({path:`tests/artifacts/game-${i}.png`,fullPage:false});
-    await page.locator('#screen').screenshot({path:`tests/artifacts/game-framebuffer-${i}.png`});
+    const png=await page.locator('#screen').evaluate(canvas=>canvas.toDataURL('image/png'));
+    writeFileSync(`tests/artifacts/game-framebuffer-${i}.png`,Buffer.from(png.split(',')[1],'base64'));
     frames.push(await page.locator('#screen').evaluate(canvas=>{
       const copy=new OffscreenCanvas(canvas.width,canvas.height),ctx=copy.getContext('2d');
       ctx.drawImage(canvas,0,0);const pixels=ctx.getImageData(0,0,copy.width,copy.height).data;

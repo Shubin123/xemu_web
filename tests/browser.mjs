@@ -1,5 +1,5 @@
 import {createServer} from 'node:http';
-import {readFile} from 'node:fs/promises';
+import {readFile,writeFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
 import {chromium} from 'playwright-core';
 import {chromePath} from './chrome.mjs';
@@ -84,7 +84,8 @@ try{
   assert.ok(result.log.includes(`XEMUWEB:DONE ${result.expected}`),result.log);
   assert.ok(result.snapshots.some(s=>s.name==='pages-test'),'OPFS snapshot missing');
   assert.ok(result.stats.framesConsumed>0,'No frame delivered');
-  await page.locator('#screen').screenshot({path:'tests/engine-framebuffer.png'});
+  const framePng=await page.locator('#screen').evaluate(canvas=>canvas.toDataURL('image/png'));
+  await writeFile('tests/engine-framebuffer.png',Buffer.from(framePng.split(',')[1],'base64'));
   if(!process.env.TARGET_URL)for(const asset of ['release.json','src/xemu-core-worker.js','cores/xemu/xemu-core.wasm'])
     assert.ok(releaseRequests.some(request=>request.path.endsWith(asset)&&request.release===release.info.release),`Unversioned cached asset: ${asset}`);
   assert.deepEqual(errors,[]);
