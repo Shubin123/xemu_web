@@ -1,8 +1,8 @@
 import {Buttons} from './src/xemu-host.js';
 const keyboard = {ArrowLeft:Buttons.DPAD_LEFT, ArrowRight:Buttons.DPAD_RIGHT, ArrowUp:Buttons.DPAD_UP,
-  ArrowDown:Buttons.DPAD_DOWN, KeyZ:Buttons.A, KeyX:Buttons.B, KeyA:Buttons.X, KeyS:Buttons.Y,
+  ArrowDown:Buttons.DPAD_DOWN, KeyZ:Buttons.A, KeyX:Buttons.B, KeyC:Buttons.X, KeyV:Buttons.Y,
   Enter:Buttons.START, Backspace:Buttons.BACK, Digit1:Buttons.WHITE, Digit2:Buttons.BLACK};
-const axisKeys = ['KeyQ','KeyW','KeyI','KeyJ','KeyK','KeyL','KeyT','KeyF','KeyG','KeyH'];
+const axisKeys = ['KeyQ','KeyE','KeyW','KeyA','KeyS','KeyD','KeyI','KeyJ','KeyK','KeyL','KeyT','KeyF','KeyG','KeyH'];
 const map = [Buttons.A,Buttons.B,Buttons.X,Buttons.Y,Buttons.WHITE,Buttons.BLACK,0,0,
   Buttons.BACK,Buttons.START,Buttons.LSTICK,Buttons.RSTICK,Buttons.DPAD_UP,Buttons.DPAD_DOWN,
   Buttons.DPAD_LEFT,Buttons.DPAD_RIGHT];
@@ -68,9 +68,9 @@ export function installInput(getHost, report) {
           for (const k of keys) buttons|=keyboard[k]||0;
           for (const bit of touch.values()) if(bit>0)buttons|=bit;
           axes[0]=keys.has('KeyQ')||[...touch.values()].includes(-1)?32767:0;
-          axes[1]=keys.has('KeyW')||[...touch.values()].includes(-2)?32767:0;
-          axes[2]=(Number(keys.has('KeyL'))-Number(keys.has('KeyJ')))*32767;
-          axes[3]=(Number(keys.has('KeyI'))-Number(keys.has('KeyK')))*32767;
+          axes[1]=keys.has('KeyE')||[...touch.values()].includes(-2)?32767:0;
+          axes[2]=(Number(keys.has('KeyD')||keys.has('KeyL'))-Number(keys.has('KeyA')||keys.has('KeyJ')))*32767;
+          axes[3]=(Number(keys.has('KeyW')||keys.has('KeyI'))-Number(keys.has('KeyS')||keys.has('KeyK')))*32767;
           axes[4]=(Number(keys.has('KeyH'))-Number(keys.has('KeyF')))*32767;
           axes[5]=(Number(keys.has('KeyT'))-Number(keys.has('KeyG')))*32767;
           for(let i=0;i<4;i++) if(sticks[i>>1][i%2])axes[i+2]=sticks[i>>1][i%2];

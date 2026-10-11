@@ -96,14 +96,29 @@ try{
     let rejectRun;
     let log='';const done=new Promise((resolve,reject)=>{rejectRun=reject;host.addEventListener('log',e=>{log+=e.detail.lines.map(l=>l.text).join('\n');if(log.includes('XEMUWEB:DONE'))resolve(log);});host.addEventListener('error',e=>reject(Error(e.detail.message)));host.addEventListener('abort',e=>reject(Error(e.detail.message)));});
     const timer=setTimeout(()=>{rejectRun(Error('Engine timed out'));host.terminate();},60000);
+    const {installInput}=await import('./input.js');
+    const clearInput=installInput(()=>host,()=>{});
+    const input=[];
+    async function sample(codes){
+      clearInput();
+      for(const code of codes)document.body.dispatchEvent(new KeyboardEvent('keydown',{code,bubbles:true}));
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      const base=(host.ptr.pads+host.layout.padButtons)>>2;
+      const axis=(host.ptr.pads+host.layout.padAxis)>>2;
+      input.push({buttons:Atomics.load(host.u32,base),axes:Array.from(host.i32.subarray(axis,axis+6))});
+    }
     try{await host.boot({wasmBinary,files:{flash:{opfs:flash.opfs},hdd:{opfs:hdd.opfs,writable:true}},settings:{renderer:'OPENGL'},args:['-debugcon','stdio']});await done;
+      for(const codes of [['KeyW'],['KeyA'],['KeyS'],['KeyD'],['KeyW','KeyS','KeyA','KeyD'],[]])await sample(codes);
+      clearInput();
       // Large files take the lazy WORKERFS path; reinsert the same apostrophe
       // filename to exercise unique mounts rather than colliding with the old one.
       const disc=new File([new Uint8Array(17*1024*1024)], "Tony Hawk's test.iso");
       await host.loadDisc(disc,disc.name);await host.ejectDisc();
       await host.loadDisc(disc,disc.name);await host.ejectDisc();
-      await host.saveSnapshot('pages-test');const snapshots=await host.listSnapshots();await host.loadSnapshot('pages-test');await host.deleteSnapshot('pages-test');return {log,expected,snapshots,progress,stats:host.getStats()};}finally{clearTimeout(timer);hideLoading();host.terminate();}
+      await host.saveSnapshot('pages-test');const snapshots=await host.listSnapshots();await host.loadSnapshot('pages-test');await host.deleteSnapshot('pages-test');return {log,expected,snapshots,progress,input,stats:host.getStats()};}finally{clearTimeout(timer);hideLoading();host.terminate();}
   },{bytes:[...fixture.flash],disk:[...createQcow2()],expected:fixture.checksumHex});
+  assert.deepEqual(result.input.map(p=>p.axes),[[0,0,0,32767,0,0],[0,0,-32767,0,0,0],[0,0,0,-32767,0,0],[0,0,32767,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0]],'WASD must reach the engine shared controller memory and release to neutral');
+  assert.ok(result.input.every(p=>p.buttons===0),'WASD must not also press face buttons');
   assert.equal(result.progress,100,'Engine download must complete the loading bar');
   assert.ok(result.log.includes(`XEMUWEB:DONE ${result.expected}`),result.log);
   assert.ok(result.snapshots.some(s=>s.name==='pages-test'),'OPFS snapshot missing');
