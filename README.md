@@ -41,7 +41,7 @@ browser storage deletes console files, imported discs, and saves.
 - Movable, resizable, collapsible and hideable widgets with a persisted layout drawer.
 - WebGL2 renderer, 1x–4x resolution, fullscreen with Alt+Enter, and sharp/smooth display filtering.
 - Four gamepads, keyboard controls, rumble and automatic/always/hidden touch controls with two analog sticks.
-- AudioWorklet output, volume and buffer selection, pause/resume/reset, save slots and diagnostics.
+- AudioWorklet output, Fast/Full audio modes, volume and buffer selection, pause/resume/reset, save slots and diagnostics.
 - A green loading bar shows file import and engine download progress, then initialization until the console starts.
 
 Xbox has one display. Azahar's dual-screen sizing and 3DS wireless lobby controls
@@ -92,9 +92,13 @@ The test firmware is original generated code, not console firmware.
 
 Chrome with WebGL2, OffscreenCanvas, OPFS, WebAssembly SIMD and SharedArrayBuffer
 is the supported target. The Xbox dashboard and keyboard D-pad/A/B navigation
-are verified with local console files on Metal and SwiftShader. F1 2001 still
-produces black output; game graphics and audible game playback remain
-unverified. See [THIRD_PARTY.md](THIRD_PARTY.md)
+are verified with local console files on Metal and SwiftShader. F1 2001 menus
+and race scenes render with Fast audio, the recommended webapp default. Full
+DSP audio can stall its startup; Fast audio uses xemu's voice processor output
+without DSP effects. Press Z (A) to skip F1's intro and confirm its menus.
+Full audio remains selectable and both modes persist across visits; changes
+apply on the next boot. Other games and full audio compatibility remain
+experimental. See [THIRD_PARTY.md](THIRD_PARTY.md)
 for frontend attribution and the matching engine source.
 
 For an opt-in test with your own local Xbox files, set `XEMU_DISC_PATH`,

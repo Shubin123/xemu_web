@@ -20,6 +20,8 @@ try {
   if(!['metal','swiftshader'].includes(gpu))throw Error('XEMU_GAME_GPU must be metal or swiftshader');
   browser=await chromium.launch({executablePath:chromePath(),headless:true,args:[gpu==='metal'?'--use-angle=metal':'--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
+  // Shader warmup and GPU readback can exceed the UI's ordinary timeout.
+  page.setDefaultTimeout(120000);
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto(process.env.TARGET_URL||url);await page.waitForFunction(()=>!document.getElementById('boot').disabled);
   for(const [id,path]of Object.entries(paths))if(path)await page.locator(`#${id}`).setInputFiles(path);

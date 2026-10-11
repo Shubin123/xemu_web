@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "backend": "Shubin123/xemu_emscripten",
-  "backendCommit": "453b293d9676bd7af6603eb33325548092a3581a",
-  "sourceArchiveSha256": "be3690eee725a2fdb1452aee88958b60636cc75851259d6de7c1bc62b7668479",
-  "coreId": "sha256:81d6021fbc57d5e902b35da90907de0c2ad0515fdab8e585a0b4ae06ffbd9839",
+  "backendCommit": "6c62f04741fcb67c55c5d262a4a7df1b04783072",
+  "sourceArchiveSha256": "8a622c20d10a7ee028c9c4717a0a250146b794a6f2f79c2f2780397ce072f16f",
+  "coreId": "sha256:102dc1cb69c320d68c5bcb8604ecd7ecce4a15cbcafbb813e0dcd26e612afe2d",
   "files": [
     {
       "path": "cores/xemu/xemu-core.build.json",
       "size": 667,
-      "sha256": "dbd48fcd1300ebcad697a1c2f037a8ccd9863bc70018d22fd149caeaf48125d9"
+      "sha256": "0bc465281fa1d7b40e8886bd411cad48ceaa2a5b58c902f75ed153ecb0e3ccf9"
     },
     {
       "path": "cores/xemu/xemu-core.js",
@@ -17,23 +17,23 @@
     },
     {
       "path": "cores/xemu/xemu-core.wasm",
-      "size": 11762155,
-      "sha256": "81d6021fbc57d5e902b35da90907de0c2ad0515fdab8e585a0b4ae06ffbd9839"
+      "size": 11762167,
+      "sha256": "102dc1cb69c320d68c5bcb8604ecd7ecce4a15cbcafbb813e0dcd26e612afe2d"
     },
     {
       "path": "source/xemu-source.tar.gz.part00",
       "size": 33554432,
-      "sha256": "a1fb4a246a66b2fa1395ab9f243e1417ba9f9d240c75bd042406be43c99da311"
+      "sha256": "846d9fd6d0994a7fb29c6df9570def4cd0e901fbb93a906b54b307f597bd09d8"
     },
     {
       "path": "source/xemu-source.tar.gz.part01",
       "size": 33554432,
-      "sha256": "ea968855815533e17130a7ea73361a16d236fd9f719a36ec661dddf1cdef4bd2"
+      "sha256": "6aace822fe201c3fde96dd7d48a41ef44b099d03dc97850cfa414ade03196e03"
     },
     {
       "path": "source/xemu-source.tar.gz.part02",
-      "size": 25570336,
-      "sha256": "e38ef06ef836ca32ad1cc95009e1c655d6afb58faf7faa2450176e0029cb7fef"
+      "size": 25570806,
+      "sha256": "3fc9a2cc6e63411c104f672f3532c2bcfe7b10d195e8384aafbbcee310ad0326"
     },
     {
       "path": "src/xemu-audio-worklet.js",

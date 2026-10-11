@@ -81,7 +81,8 @@ async function cacheConsoleSelections(signal) {
   }
 }
 async function bootConsole(){
-  debug.record('boot-request',{disc:selected?.name||null,cached:!!selected?.opfs,isolated:crossOriginIsolated,renderer:$('renderer').value});
+  $('game-hint').hidden=!/(?:^|[^a-z0-9])f1[ ._-]*2001(?:[^0-9]|$)/i.test(selected?.name||'');
+  debug.record('boot-request',{disc:selected?.name||null,cached:!!selected?.opfs,isolated:crossOriginIsolated,renderer:$('renderer').value,audioMode:$('audio-mode').value});
   showLoading('Preparing console…');
   await window.xemuIsolationReady;
   if(!crossOriginIsolated)throw Error('Browser threads are unavailable. Reload the page or use a browser that allows the isolation service worker.');
@@ -103,7 +104,7 @@ async function bootConsole(){
   current.addEventListener('exited',e=>{if(current!==host)return;status(`Console exited (${e.detail.status})`);shutdown();});
   current.addEventListener('started',()=>{if(current===host){hideLoading();status('Console running');controls();}});
   current.addEventListener('log',e=>{$('logs').textContent=($('logs').textContent+e.detail.lines.map(l=>l.text).join('\n')+'\n').slice(-20000);});
-  try{await current.boot({files,wasmBinary,settings:{renderer:$('renderer').value,memory:$('memory').value,surfaceScale:Number($('scale').value)},args:['-debugcon','stdio']});}catch(e){shutdown();throw e;}
+  try{await current.boot({files,wasmBinary,settings:{useDsp:$('audio-mode').value==='full',renderer:$('renderer').value,memory:$('memory').value,surfaceScale:Number($('scale').value)},args:['-debugcon','stdio']});}catch(e){shutdown();throw e;}
 }
 $('boot').onclick=action(bootConsole);
 function shutdown() {hideLoading();host?.terminate();host=null;paused=false;sound=false;clearInput();$('pause').textContent='Pause';$('audio').textContent='Enable audio';controls();}
@@ -115,8 +116,8 @@ $('audio').onclick=action(async()=>{if(sound){host.stopAudio();sound=false;}else
 $('volume').oninput=()=>{$('volume-value').textContent=`${Math.round(Number($('volume').value)*100)}%`;host?.setVolume(Number($('volume').value));saveSettings();};
 $('latency').onchange=saveSettings;
 $('scale').onchange=action(async()=>{saveSettings();if(host)await host.setSurfaceScale(Number($('scale').value));});
-for(const id of ['renderer','memory','touch-mode'])$(id).addEventListener('change',saveSettings);
-function saveSettings(){try{localStorage.setItem('xemu-settings',JSON.stringify(Object.fromEntries(['renderer','memory','touch-mode','scale','volume','latency','filtering'].map(id=>[id,$(id).value]))));}catch{}}
+for(const id of ['renderer','memory','touch-mode','audio-mode'])$(id).addEventListener('change',saveSettings);
+function saveSettings(){try{localStorage.setItem('xemu-settings',JSON.stringify(Object.fromEntries(['renderer','memory','touch-mode','audio-mode','scale','volume','latency','filtering'].map(id=>[id,$(id).value]))));}catch{}}
 try{const settings=JSON.parse(localStorage.getItem('xemu-settings')||'{}');for(const [id,value]of Object.entries(settings)){if(!$(id))continue;if($(id).tagName==='SELECT'&&![...$(id).options].some(o=>o.value===value))continue;$(id).value=value;}}catch{}
 function filtering(){$('screen').style.imageRendering=$('filtering').value;saveSettings();}
 $('filtering').onchange=filtering;filtering();$('volume-value').textContent=`${Math.round(Number($('volume').value)*100)}%`;

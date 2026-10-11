@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "coreId": "sha256:81d6021fbc57d5e902b35da90907de0c2ad0515fdab8e585a0b4ae06ffbd9839",
+  "coreId": "sha256:102dc1cb69c320d68c5bcb8604ecd7ecce4a15cbcafbb813e0dcd26e612afe2d",
   "upstreamCommit": "478b4f496102379c7eaa7f3ec10e714a703c4300",
-  "vendorHead": "587bf8a75260e5e20ff29e5c0801299440d0bf03",
+  "vendorHead": "f4a54fb9ea2253cf3e61cba920e26ef4590a6652",
   "vendorDirty": false,
   "profile": "release",
   "emscripten": "6.0.9",
-  "builtAt": "2026-10-11T18:40:04.417Z",
+  "builtAt": "2026-10-11T23:28:37.411Z",
   "files": [
     {
       "path": "xemu-core.js",
@@ -15,8 +15,8 @@
     },
     {
       "path": "xemu-core.wasm",
-      "size": 11762155,
-      "sha256": "81d6021fbc57d5e902b35da90907de0c2ad0515fdab8e585a0b4ae06ffbd9839"
+      "size": 11762167,
+      "sha256": "102dc1cb69c320d68c5bcb8604ecd7ecce4a15cbcafbb813e0dcd26e612afe2d"
     }
   ]
 }

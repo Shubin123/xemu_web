@@ -10,6 +10,7 @@ import {generatedRar} from './fixtures/rar.js';
 // Match Pages: project subpath, HTTPS-capable localhost, no COOP/COEP headers.
 const root=resolve('web'), prefix='/xemu_web/';
 const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.wasm':'application/wasm','.svg':'image/svg+xml','.json':'application/json'};
+const trace=message=>{if(process.env.XEMU_TEST_TRACE)console.log(message);};
 const releaseRequests=[];
 const server=createServer(async(req,res)=>{
   try{const requestUrl=new URL(req.url,'http://localhost');if(requestUrl.searchParams.has('xemu-release'))releaseRequests.push({path:requestUrl.pathname,release:requestUrl.searchParams.get('xemu-release')});const path=requestUrl.pathname;if(!path.startsWith(prefix)){res.writeHead(404).end();return;}const file=resolve(root,path.slice(prefix.length)||'index.html');if(!file.startsWith(root+'/'))throw Error('path');const bytes=await readFile(file);res.setHeader('Content-Type',mime[extname(file)]||'application/octet-stream');res.end(bytes);}catch{res.writeHead(404).end();}
@@ -20,10 +21,19 @@ const browser=await chromium.launch({executablePath:chromePath(),headless:true,a
 try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}), errors=[];
   page.on('pageerror',e=>errors.push(e.message));
+  await page.addInitScript(()=>{globalThis.__bootSettings=[];const original=Worker.prototype.postMessage;Worker.prototype.postMessage=function(message,...rest){if(message?.type==='boot'){globalThis.__bootSettings.push(message.settings);if(globalThis.__generatedAppBoot)delete message.files.mcpx;}return original.call(this,message,...rest);};});
+  trace('Open app');
   await page.goto(url);
   await page.waitForFunction(()=>crossOriginIsolated,{},{timeout:30000});
   await page.waitForFunction(()=>!document.getElementById('boot').disabled);
   assert.equal(await page.evaluate(()=>typeof SharedArrayBuffer),'function');
+  assert.equal(await page.locator('#audio-mode').inputValue(),'fast');
+  trace('Audio preference: full');
+  await page.locator('#audio-mode').selectOption('full');await page.reload();await page.waitForFunction(()=>!document.getElementById('boot').disabled);
+  assert.equal(await page.locator('#audio-mode').inputValue(),'full','Explicit full audio preference must persist');
+  trace('Audio preference: fast');
+  await page.locator('#audio-mode').selectOption('fast');await page.reload();await page.waitForFunction(()=>!document.getElementById('boot').disabled);
+  assert.equal(await page.locator('#audio-mode').inputValue(),'fast');
   assert.equal(await page.locator('#library tr').count(),714,'Archive collection must be visible on first load');
   assert.equal(await page.locator('#library button').filter({hasText:/^Play$/}).count(),714,'Every archive game must offer Play');
   await page.locator('#library-source').selectOption('local');
@@ -85,6 +95,7 @@ try{
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Mobile overflow');
   await page.screenshot({path:'tests/mobile.png',fullPage:true});
   const fixture={flash:buildFlash(2000000),checksumHex:expectedChecksum(2000000).toString(16).toUpperCase().padStart(8,'0')};
+  trace('Engine fixture and snapshots');
   const result=await page.evaluate(async({bytes,disk,expected})=>{
     const {downloadEngine,hideLoading}=await import('./loading.js');
     const wasmBinary=await downloadEngine();
@@ -128,6 +139,7 @@ try{
   if(!process.env.TARGET_URL)for(const asset of ['release.json','src/xemu-core-worker.js','cores/xemu/xemu-core.wasm'])
     assert.ok(releaseRequests.some(request=>request.path.endsWith(asset)&&request.release===release.info.release),`Unversioned cached asset: ${asset}`);
   assert.deepEqual(errors,[]);
+  trace('Download failure context');
   const failureContext=await browser.newContext({serviceWorkers:'block'});
   try {
     const failurePage=await failureContext.newPage();
@@ -154,5 +166,17 @@ try{
     assert.ok(await failurePage.locator('#boot').isEnabled(),'Failure must allow retry');
   } finally {await failureContext.close();}
 
+  trace('Application boot with fast audio');
+  // The generated flash boots directly, without a console MCPX. Keep the
+  // application boot path and settings intact while omitting that fixture ROM.
+  await page.locator('#mcpx').setInputFiles({name:'generated-test-only.bin',mimeType:'application/octet-stream',buffer:Buffer.alloc(512)});
+  await page.locator('#flash').setInputFiles({name:'generated-test-flash.bin',mimeType:'application/octet-stream',buffer:Buffer.from(fixture.flash)});
+  await page.locator('#hdd').setInputFiles({name:'generated-test-disk.qcow2',mimeType:'application/octet-stream',buffer:Buffer.from(createQcow2())});
+  await page.evaluate(()=>{globalThis.__generatedAppBoot=true;document.getElementById('logs').textContent='';});
+  await page.locator('#boot').click();
+  await page.waitForFunction(expected=>document.getElementById('logs').textContent.includes('XEMUWEB:DONE '+expected),fixture.checksumHex,{timeout:30000});
+  assert.equal(await page.evaluate(()=>globalThis.__bootSettings.at(-1)?.useDsp),false,'Fast audio must reach the engine boot configuration');
+  await page.locator('#stop').click();
+  assert.deepEqual(errors,[]);
   console.log('Browser checks passed: full catalog Play/Cache, cached replay, archive access errors, Pages subpath isolation, persisted layout/library, search, touch UI, mobile layout, loading progress/error recovery, WebGL2 engine checksum and OPFS snapshot save/load/delete');
 }finally{await browser.close();await new Promise(r=>server.close(r));}
