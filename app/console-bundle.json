@@ -1,0 +1,26 @@
+{
+  "source": "https://github.com/K3V1991/Xbox-Emulator-Files/releases/download/v1/Xbox-Emulator-Files.zip",
+  "url": "./console-files.zip",
+  "size": 794899676,
+  "sha256": "a74b9e36cf24aa392d2410475cbe41947789007ac6a152a20d4b1244ff1506c7",
+  "files": {
+    "mcpx": {
+      "path": "mcpx/mcpx_1.0.bin",
+      "name": "mcpx_1.0.bin",
+      "size": 512,
+      "sha256": "e99e3a772bf5f5d262786aee895664eb96136196e37732fe66e14ae062f20335"
+    },
+    "flash": {
+      "path": "bios/Complex_4627.bin",
+      "name": "Complex_4627.bin",
+      "size": 1048576,
+      "sha256": "34f1c8ded59116436065783f8ad2ef0939df3cbfc76277ec9e5c41bf9ccb93cd"
+    },
+    "hdd": {
+      "path": "hdd/xbox_hdd.qcow2",
+      "name": "xbox_hdd.qcow2",
+      "size": 1033109504,
+      "sha256": "576d11469fb9133ac5cf25f563ba667519c6a8f4a1997408fd4e3878e6a9ec29"
+    }
+  }
+}

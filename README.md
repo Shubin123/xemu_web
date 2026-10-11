@@ -149,3 +149,22 @@ test profile a 4 GiB quota and verify persistent caching separately.
 Directly selected games become the active disc for Load & Run. When caching
 fails, the converted disc remains playable for the current session; Cache can
 be retried from the local library.
+
+The Console Files card offers **Download & configure console files** for the
+user-requested K3V1991 v1 ZIP, as well as **Download setup ZIP** and local ZIP
+import. Setup reads the three members, checks CRCs, firmware hashes, sizes and
+qcow2 format, and commits the browser catalog only after all imports succeed.
+It installs missing files and preserves an existing HDD and its saves.
+
+The Pages workflow runs `tools/stage-console-bundle.mjs` after source checks
+to fetch the checksum-pinned ZIP into ignored `web/console-files.zip`. The
+site serves this compressed deployment asset from its own origin, allowing
+clients to configure the console without GitHub release CORS restrictions.
+No firmware or disk images are committed. To stage an already downloaded ZIP
+locally after `npm run build`, use:
+`node tools/stage-console-bundle.mjs --from=/path/Xbox-Emulator-Files.zip`.
+Run `npm run test:console` for generated-fixture download/import, checksum
+failure rollback and existing HDD preservation checks. Real console/F1
+diagnostics are opt-in with
+`XEMU_RAR_PATH=/path/to/game.rar node tests/console-game.mjs`; inspect its
+captured frames as well as the log to assess actual gameplay.

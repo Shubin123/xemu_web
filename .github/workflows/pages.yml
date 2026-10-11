@@ -6,6 +6,7 @@ on:
       - 'app/**'
       - 'runtime/**'
       - 'tools/build.mjs'
+      - 'tools/stage-console-bundle.mjs'
       - 'tests/smoke.mjs'
       - 'tests/source.mjs'
       - '.github/workflows/pages.yml'
@@ -34,6 +35,10 @@ jobs:
         run: node tests/smoke.mjs
       - name: Verify downloadable matching source
         run: node tests/source.mjs
+      - name: Stage pinned console setup download
+        run: node tools/stage-console-bundle.mjs
+      - name: Check staged console bundle
+        run: node tests/smoke.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -1,3 +1,4 @@
+import {installConsoleBundle} from './console-setup.js';
 import {extractRar,discSource} from './game-import.js';
 import {XemuHost} from './src/xemu-host.js';
 import {readCatalog,writeCatalog,importFile,removeFile,storageSummary} from './storage.js';
@@ -7,7 +8,8 @@ import {createDebugTrace} from './debug.js';
 const $=id=>document.getElementById(id);
 let host, selected, paused=false, busy=false, sound=false;
 let catalog={console:{},discs:[]}, discs=[], remoteGames=[];
-let importController, pendingArchive;
+let importController, pendingArchive, setupController;
+$('cancel-setup').onclick=()=>setupController?.abort();
 $('cancel-import').onclick=()=>importController?.abort();
 const debug=createDebugTrace({log:$('logs'),canvas:$('screen'),getStats:()=>host?.getStats()||null});
 $('export-debug').onclick=()=>debug.export();
@@ -18,7 +20,7 @@ function controls() {
   for(const id of ['pause','stop','reset','audio','save','refresh','eject'])$(id).disabled=!host?.memory||busy;
   $('boot').disabled=!!host||busy;
   $('discs').disabled=busy;
-  for(const id of ['mcpx','flash','hdd','eeprom','renderer','memory'])$(id).disabled=!!host||busy;
+  for(const id of ['mcpx','flash','hdd','eeprom','renderer','memory','get-console','console-zip'])$(id).disabled=!!host||busy;
 }
 const action=fn=>async()=>{if(busy)return;busy=true;controls();try{await fn();}catch(e){report(e);}finally{busy=false;controls();}};
 function labelFile(kind, name) {document.querySelector(`label[for="${kind}"]`).textContent=name||`Choose ${kind==='hdd'?'hard disk image':kind.toUpperCase()}…`;}
@@ -29,10 +31,25 @@ async function copyFile(file, label) {
   finally {hideLoading();}
 }
 async function updateStorage() {try{$('storage').textContent=`Files saved on this device. ${await storageSummary()}`;}catch{$('storage').textContent='Browser storage unavailable.';}}
+async function setupConsole(file){
+ setupController=new AbortController();$('cancel-setup').hidden=false;
+ let entries;
+ try{
+  const existing=['mcpx','flash','hdd'].filter(kind=>catalog.console[kind]||$(kind).files[0]);
+  entries=await installConsoleBundle({file,existing,signal:setupController.signal,onProgress:(text,ratio)=>{status(text);$('console-setup-status').textContent=text;showLoading(text,ratio);}});
+  const next={...catalog,console:{...catalog.console,...entries}};
+  try{await writeCatalog(next);}catch(error){for(const entry of Object.values(entries))await removeFile(entry).catch(()=>{});throw error;}
+  catalog=next;for(const [kind,entry]of Object.entries(entries))labelFile(kind,entry.name);
+  await updateStorage();$('console-setup-status').textContent='Console files ready. These files are reused for every game.';status('Console files ready. Choose Load & Run to start the selected game.');
+ }catch(error){$('console-setup-status').textContent=error.message||String(error);throw error;}
+ finally{setupController=null;$('cancel-setup').hidden=true;hideLoading();}
+}
+$('get-console').onclick=action(()=>setupConsole());
+$('console-zip').onchange=action(async()=>{const file=$('console-zip').files[0];$('console-zip').value='';if(file)await setupConsole(file);});
 async function prepareConsole() {
   const missing=['mcpx','flash','hdd'].filter(kind=>!catalog.console[kind]&&!$(kind).files[0]);
   debug.record('console-files',{missing,present:['mcpx','flash','hdd','eeprom'].filter(kind=>catalog.console[kind]||$(kind).files[0])});
-  if(missing.length)throw Error(`Missing console files: ${missing.map(kind=>({mcpx:'MCPX boot ROM',flash:'flash BIOS',hdd:'qcow2 hard disk image'})[kind]).join(', ')}. Select them in Console Files before running the disc.`);
+  if(missing.length)throw Error(`Missing console files: ${missing.map(kind=>({mcpx:'MCPX boot ROM',flash:'flash BIOS',hdd:'qcow2 hard disk image'})[kind]).join(', ')}. Use Download & configure console files, or select them individually in Console Files.`);
   for(const kind of ['mcpx','flash','hdd','eeprom']) {
     const file=$(kind).files[0];if(!file)continue;
     if(kind==='hdd') {

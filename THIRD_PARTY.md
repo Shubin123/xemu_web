@@ -23,3 +23,13 @@ UnRAR 6.1.7 compiled to WASM. Both license texts are preserved in
 native browser loading; no CDN or build-time decoder download is needed.
 The npm release tarball SHA-1 is `03ef602052497263b9aed8ff1e7afb315024f9ec`.
 The Xbox XDVDFS builder and OPFS integration are specific to this frontend.
+
+Console setup ZIP parsing uses @zip.js/zip.js 2.23.0 (BSD-3-Clause), with its
+license preserved in `app/vendor/zip/LICENSE`. The npm release tarball SHA-1
+is `ea45d9b8c56f7d9e9dd1a266b34b153532f2757e`.
+
+At the user's request, Pages stages the console ZIP from
+[K3V1991/Xbox-Emulator-Files v1](https://github.com/K3V1991/Xbox-Emulator-Files/releases/tag/v1).
+`app/console-bundle.json` pins the original download, ZIP SHA-256 and member
+sizes/hashes. These files are deployment assets and private browser data;
+console firmware and disk images are never committed to this repository.
