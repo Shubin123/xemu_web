@@ -103,7 +103,7 @@ async function bootConsole(){
   current.addEventListener('exited',e=>{if(current!==host)return;status(`Console exited (${e.detail.status})`);shutdown();});
   current.addEventListener('started',()=>{if(current===host){hideLoading();status('Console running');controls();}});
   current.addEventListener('log',e=>{$('logs').textContent=($('logs').textContent+e.detail.lines.map(l=>l.text).join('\n')+'\n').slice(-20000);});
-  try{await current.boot({files,wasmBinary,settings:{renderer:$('renderer').value,memory:$('memory').value,surfaceScale:Number($('scale').value)}});}catch(e){shutdown();throw e;}
+  try{await current.boot({files,wasmBinary,settings:{renderer:$('renderer').value,memory:$('memory').value,surfaceScale:Number($('scale').value)},args:['-debugcon','stdio']});}catch(e){shutdown();throw e;}
 }
 $('boot').onclick=action(bootConsole);
 function shutdown() {hideLoading();host?.terminate();host=null;paused=false;sound=false;clearInput();$('pause').textContent='Pause';$('audio').textContent='Enable audio';controls();}

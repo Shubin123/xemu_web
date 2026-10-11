@@ -25,7 +25,11 @@ const missing=[],invalid=[],checks={};
 for(const kind of ['disc','mcpx','flash','hdd']) {
  const path=paths[kind];if(!path||!existsSync(path)){missing.push(kind);continue;}
  const size=statSync(path).size;checks[kind]={path,size};
- if(kind==='disc'&&header(path,0x10000,20).toString()!=='MICROSOFT*XBOX*MEDIA')invalid.push('disc: expected an Xbox xiso image');
+ if(kind==='disc') {
+  const isXiso=header(path,0x10000,20).toString()==='MICROSOFT*XBOX*MEDIA';
+  const isRar=header(path,0,4).toString()==='Rar!'||path.toLowerCase().endsWith('.rar');
+  if(!isXiso&&!isRar)invalid.push('disc: expected an Xbox xiso image or RAR archive');
+ }
  if(kind==='mcpx') {
   if(size!==512)invalid.push('mcpx: expected a 512-byte MCPX boot ROM');
   else if(createHash('md5').update(readFileSync(path)).digest('hex')!=='d49c52a4102f6df7bcf8d0617ac475ed')invalid.push('mcpx: checksum does not match the documented MCPX 1.0 dump');

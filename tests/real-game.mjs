@@ -19,6 +19,7 @@ try {
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto(process.env.TARGET_URL||url);await page.waitForFunction(()=>!document.getElementById('boot').disabled);
   for(const [id,path]of Object.entries(paths))if(path)await page.locator(`#${id}`).setInputFiles(path);
+  await page.waitForFunction(()=>!document.getElementById('boot').disabled&&document.getElementById('loading-panel').hidden&&!document.getElementById('selected-disc').textContent.includes('No disc selected'),null,{timeout:300000});
   await page.locator('#boot').click();
   await page.waitForFunction(()=>!document.getElementById('audio').disabled,{},{timeout:90000});
   await page.locator('#audio').click();
