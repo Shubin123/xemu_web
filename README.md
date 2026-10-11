@@ -91,8 +91,10 @@ execution, WebGL2 initialization, frame delivery, and OPFS snapshot save/load/de
 The test firmware is original generated code, not console firmware.
 
 Chrome with WebGL2, OffscreenCanvas, OPFS, WebAssembly SIMD and SharedArrayBuffer
-is the supported target. Actual console BIOS, game graphics and audio compatibility
-remain unverified with user-owned software. See [THIRD_PARTY.md](THIRD_PARTY.md)
+is the supported target. The Xbox dashboard and keyboard D-pad/A/B navigation
+are verified with local console files on Metal and SwiftShader. F1 2001 still
+produces black output; game graphics and audible game playback remain
+unverified. See [THIRD_PARTY.md](THIRD_PARTY.md)
 for frontend attribution and the matching engine source.
 
 For an opt-in test with your own local Xbox files, set `XEMU_DISC_PATH`,
@@ -101,6 +103,14 @@ For an opt-in test with your own local Xbox files, set `XEMU_DISC_PATH`,
 Media is opened through browser file inputs in a temporary profile; only ignored
 screenshots and diagnostics are written to `tests/artifacts/`. Inspect those
 screenshots to distinguish game rendering from a console that merely started.
+The test captures three minutes by default and requires at least two different
+frames with more than sixteen colors each. Black, solid-color and frozen output
+fails even when the status says Console running. Use `XEMU_GAME_SECONDS` (at
+least 40) to change the duration, or `XEMU_GAME_GPU=metal` to test Apple Metal
+instead of SwiftShader on macOS.
+With an HDD containing the xemu dashboard, `npm run test:dashboard` checks
+real guest menu rendering and keyboard D-pad/A/B navigation without a disc.
+It uses the same local firmware/HDD paths and writes ignored screenshots.
 
 ## Prepare the local NBA Live 2002 test
 

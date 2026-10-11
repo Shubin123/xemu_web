@@ -13,6 +13,7 @@
     "test:console": "node tests/range-reader.mjs && node tests/console-setup.mjs",
     "test:source": "node tests/source.mjs",
     "test:game": "node tests/real-game.mjs",
+    "test:dashboard": "node tests/dashboard.mjs",
     "prepare:game": "node tools/prepare-game.mjs",
     "library:generate": "node tools/generate-library.mjs"
   },

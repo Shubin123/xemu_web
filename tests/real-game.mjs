@@ -10,11 +10,15 @@ const paths={discs:process.env.XEMU_DISC_PATH||local.disc,mcpx:process.env.XEMU_
   flash:process.env.XEMU_FLASH_PATH||local.flash,hdd:process.env.XEMU_HDD_PATH||local.hdd,eeprom:process.env.XEMU_EEPROM_PATH||local.eeprom};
 const missing=['discs','mcpx','flash','hdd'].filter(key=>!paths[key]||!existsSync(paths[key]));
 if(missing.length)throw Error(`Missing local inputs: ${missing.join(', ')}. Run npm run prepare:game with your ROM and BIOS paths.`);
+const duration=Number(process.env.XEMU_GAME_SECONDS||180);
+if(!Number.isFinite(duration)||duration<40)throw Error('XEMU_GAME_SECONDS must be at least 40');
 const child=spawn(process.execPath,['tools/serve.mjs'],{env:{...process.env,PORT:'0'},stdio:['ignore','pipe','pipe']});
 let browser;
 try {
   const url=await new Promise((resolve,reject)=>{child.stdout.once('data',data=>resolve(data.toString().trim()));child.once('error',reject);child.once('exit',()=>reject(Error('Local server exited')));});
-  browser=await chromium.launch({executablePath:chromePath(),headless:true,args:['--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
+  const gpu=process.env.XEMU_GAME_GPU||'swiftshader';
+  if(!['metal','swiftshader'].includes(gpu))throw Error('XEMU_GAME_GPU must be metal or swiftshader');
+  browser=await chromium.launch({executablePath:chromePath(),headless:true,args:[gpu==='metal'?'--use-angle=metal':'--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto(process.env.TARGET_URL||url);await page.waitForFunction(()=>!document.getElementById('boot').disabled);
@@ -26,7 +30,8 @@ try {
   mkdirSync('tests/artifacts',{recursive:true});
   await page.waitForFunction(()=>document.getElementById('status').textContent==='Console running'||(!document.getElementById('boot').disabled&&document.getElementById('loading-panel').hidden),null,{timeout:90000}).catch(()=>{});
   const frames=[];
-  for(let i=0;i<8;i++) {
+  const started=Date.now();
+  for(let i=0;Date.now()-started<duration*1000;i++) {
     await page.waitForTimeout(5000);
     if(i===2||i===4){await page.keyboard.down('Enter');await page.waitForTimeout(1500);await page.keyboard.up('Enter');await page.keyboard.down('z');await page.waitForTimeout(1500);await page.keyboard.up('z');}
     await page.screenshot({path:`tests/artifacts/game-${i}.png`,fullPage:false});
@@ -46,8 +51,10 @@ try {
     if(await page.locator('#boot').isEnabled())break;
   }
   const report=await page.evaluate(()=>({status:document.getElementById('status').textContent,stats:document.getElementById('stats').textContent,log:document.getElementById('logs').textContent}));
-  writeFileSync('tests/artifacts/game-report.json',JSON.stringify({...report,frames,errors},null,2));
-  if(report.status!=='Console running'||errors.length||!frames.some(frame=>frame.distinctColors>16)||new Set(frames.map(frame=>frame.sha256)).size<2)process.exitCode=1;
+  const rendered=frames.filter(frame=>frame.distinctColors>16);
+  const passed=report.status==='Console running'&&!errors.length&&new Set(rendered.map(frame=>frame.sha256)).size>=2;
+  writeFileSync('tests/artifacts/game-report.json',JSON.stringify({...report,gpu,duration,passed,frames,errors},null,2));
+  if(!passed)process.exitCode=1;
   if(process.exitCode)console.error('Game verification failed: expected varied, advancing game frames; solid-color or frozen output is a failure.');
   console.log('Local run captured in ignored tests/artifacts/; inspect screenshots to confirm actual game rendering.');
 } finally {await browser?.close();child.kill();}
