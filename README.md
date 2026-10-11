@@ -155,6 +155,10 @@ user-requested K3V1991 v1 ZIP, as well as **Download setup ZIP** and local ZIP
 import. Setup reads the three members, checks CRCs, firmware hashes, sizes and
 qcow2 format, and commits the browser catalog only after all imports succeed.
 It installs missing files and preserves an existing HDD and its saves.
+The download completes bounded 4 MiB byte ranges before decompression and
+retries interrupted chunks with a timeout and backoff. A dropped connection
+therefore does not discard the entire hard disk import. Cancellation stops
+pending requests and retries.
 
 The Pages workflow runs `tools/stage-console-bundle.mjs` after source checks
 to fetch the checksum-pinned ZIP into ignored `web/console-files.zip`. The

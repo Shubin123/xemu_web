@@ -1,10 +1,11 @@
-import {ZipReader,BlobReader,HttpRangeReader} from './vendor/zip/zip-core-external.min.js';
+import {ZipReader,BlobReader} from './vendor/zip/zip-core-external.min.js';
+import {RetryingRangeReader} from './range-reader.js';
 import {removeFile} from './storage.js';
 export async function bundleManifest(){const response=await fetch(new URL('./console-bundle.json',import.meta.url));if(!response.ok)throw Error('Console bundle manifest unavailable');return response.json();}
 export async function installConsoleBundle({file,existing=[],onProgress=()=>{},signal}={}){
  const manifest=await bundleManifest(),needed=Object.keys(manifest.files).filter(kind=>!existing.includes(kind));
  if(!needed.length)return {};
- const reader=new ZipReader(file?new BlobReader(file):new HttpRangeReader(new URL(manifest.url,import.meta.url).href,{signal}),{checkSignature:true});
+ const reader=new ZipReader(file?new BlobReader(file):new RetryingRangeReader(new URL(manifest.url,import.meta.url).href,manifest.size,{signal}),{checkSignature:true});
  const installed={},created=[];let writer;
  try{
   onProgress('Opening console bundle…',null);
