@@ -17,7 +17,7 @@ export async function writeCatalog(catalog) {
   await writer.close();
 }
 // New filenames keep an interrupted import from damaging the current disk/saves.
-export async function importFile(file, onProgress = () => {}) {
+export async function importFile(file, onProgress = () => {}, signal) {
   const dir = await directory();
   const name = `${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
   const writer = await (await dir.getFileHandle(name, {create: true})).createWritable();
@@ -26,9 +26,11 @@ export async function importFile(file, onProgress = () => {}) {
     const progress = new TransformStream({transform(chunk, controller) {
       copied += chunk.byteLength;
       onProgress(file.size ? copied / file.size : 1);
+      if(file.size&&copied>file.size)throw Error('Download exceeds expected size');
       controller.enqueue(chunk);
     }});
-    await file.stream().pipeThrough(progress).pipeTo(writer);
+    await file.stream().pipeThrough(progress).pipeTo(writer,{signal});
+    if(copied!==file.size)throw Error('Incomplete download');
   } catch (error) {
     await dir.removeEntry(name).catch(() => {});
     throw error;

@@ -128,3 +128,17 @@ they show the game rather than a BIOS splash or error screen.
 The live site's Log panel has **Download debug trace** and **Capture framebuffer**
 for equivalent diagnostics. Console files must be selected there once per browser;
 the website cannot read local paths from the test manifest.
+
+Local game import accepts `.rar` as well as `.iso` and `.xiso`. Following
+Azahar Web's extract-and-cache flow, RAR files are decoded in a worker and
+saved as playable discs in OPFS. Archives containing an extracted game tree
+(with one `default.xbe`) are converted to Xbox XDVDFS images. Reloading uses
+the cached disc without extracting again. Console firmware is still required.
+
+The library source selector includes Internet Archive's `mxogcx-xbox-ztm`
+collection. Refresh its metadata with `npm run library:generate`. Restricted
+entries link to Archive and can be imported from a local download; unrestricted
+entries offer Extract & Play. Interrupted downloads never enter the catalog.
+To validate a local F1 archive without publishing media:
+`XEMU_RAR_PATH=/path/to/game.rar node tests/rar-local.mjs`.
+The test raises its isolated Chrome profile's quota to 4 GiB for conversion.

@@ -1,3 +1,4 @@
+import {extractRar,discSource} from './game-import.js';
 import {XemuHost} from './src/xemu-host.js';
 import {readCatalog,writeCatalog,importFile,removeFile,storageSummary} from './storage.js';
 import {installInput} from './input.js';
@@ -5,7 +6,9 @@ import {showLoading,hideLoading,downloadEngine} from './loading.js';
 import {createDebugTrace} from './debug.js';
 const $=id=>document.getElementById(id);
 let host, selected, paused=false, busy=false, sound=false;
-let catalog={console:{},discs:[]}, discs=[];
+let catalog={console:{},discs:[]}, discs=[], remoteGames=[];
+let importController;
+$('cancel-import').onclick=()=>importController?.abort();
 const debug=createDebugTrace({log:$('logs'),canvas:$('screen'),getStats:()=>host?.getStats()||null});
 $('export-debug').onclick=()=>debug.export();
 $('capture-frame').onclick=()=>debug.capture().catch(report);
@@ -14,6 +17,7 @@ const report=error=>{hideLoading();debug.record('error',{message:error.message||
 function controls() {
   for(const id of ['pause','stop','reset','audio','save','refresh','eject'])$(id).disabled=!host?.memory||busy;
   $('boot').disabled=!!host||busy;
+  $('discs').disabled=busy;
   for(const id of ['mcpx','flash','hdd','eeprom','renderer','memory'])$(id).disabled=!!host||busy;
 }
 const action=fn=>async()=>{if(busy)return;busy=true;controls();try{await fn();}catch(e){report(e);}finally{busy=false;controls();}};
@@ -49,7 +53,7 @@ async function bootConsole(){
   showLoading('Preparing console…');
   await window.xemuIsolationReady;
   if(!crossOriginIsolated)throw Error('Browser threads are unavailable. Reload the page or use a browser that allows the isolation service worker.');
-  const files=await prepareConsole();if(selected)files.disc=selected.file||{opfs:selected.opfs};
+  const files=await prepareConsole();if(selected)files.disc=await discSource(selected);
   status('Downloading engine…');
   const wasmBinary=await downloadEngine();
   showLoading('Initializing engine…');
@@ -90,21 +94,51 @@ window.addEventListener('keydown',e=>{if(e.altKey&&e.code==='Enter'){e.preventDe
 $('clear-log').onclick=()=>debug.clear();
 $('browse-library').onclick=()=>{$('library-section').scrollIntoView({behavior:'smooth'});$('library-search').focus({preventScroll:true});};
 $('keymap-toggle').onclick=()=>{const card=document.querySelector('[data-widget="keymap"]');window.XemuLayout.show('keymap');card.scrollIntoView({behavior:'smooth'});};
-$('discs').onchange=()=>{for(const file of $('discs').files)discs.push({id:crypto.randomUUID(),name:file.name,size:file.size,added:Date.now(),file});$('discs').value='';renderLibrary();};
+$('discs').onchange=action(async()=>{const files=[...$('discs').files];$('discs').value='';for(const file of files){
+  if(/\.rar$/i.test(file.name)){const entry=await prepareGame({file,name:file.name});discs.push(entry);}
+  else if(/\.(iso|xiso)$/i.test(file.name))discs.push({id:crypto.randomUUID(),name:file.name,size:file.size,added:Date.now(),file});
+  else throw Error('Choose an Xbox ISO, XISO or RAR archive');
+}renderLibrary();status('Games added. Choose Load & Run in the local library.');});
+async function prepareGame(disc){
+ if(disc.opfs)return disc;
+ importController=new AbortController();$('cancel-import').hidden=false;
+ let temporary;
+ try{
+  let file=disc.file;
+  if(!file){
+   showLoading(`Downloading ${disc.name}…`,0);const response=await fetch(disc.url,{signal:importController.signal});
+   if(!response.ok)throw Error(`Archive download HTTP ${response.status}. Open the archive link to check access, or choose a local copy.`);
+   const length=Number(response.headers.get('content-length'))||disc.size;
+   temporary=await importFile({name:disc.name,size:length,stream:()=>response.body},ratio=>showLoading(`Downloading ${disc.name}…`,ratio),importController.signal);
+   const root=await navigator.storage.getDirectory();const dir=await root.getDirectoryHandle('xemu-web');file=await(await dir.getFileHandle(temporary.opfs.split('/').at(-1))).getFile();
+   file=new File([file],disc.name);
+  }
+  let entry;
+  if(/\.rar$/i.test(disc.name))entry=await extractRar(file,(ratio,label)=>showLoading(label,ratio),importController.signal);
+  else entry=temporary||await copyFile(file,disc.name);
+  if(entry===temporary)temporary=null;
+  const saved={id:disc.id||crypto.randomUUID(),...entry,...(disc.url?{sourceUrl:disc.url}:{})};
+  try{catalog.discs.push(saved);await writeCatalog(catalog);}catch(error){catalog.discs=catalog.discs.filter(d=>d!==saved);await removeFile(saved);throw error;}
+  await updateStorage();return saved;
+ }finally{if(temporary)await removeFile(temporary);importController=null;$('cancel-import').hidden=true;hideLoading();}
+}
+$('library-source').onchange=renderLibrary;
 $('library-search').oninput=renderLibrary;$('library-sort').onchange=renderLibrary;
 function discButton(text,fn){const b=document.createElement('button');b.className='btn btn-secondary library-action';b.textContent=text;b.onclick=action(fn);return b;}
 function renderLibrary(){
   $('library').replaceChildren();const query=$('library-search').value.toLowerCase().trim();
-  const filtered=discs.filter(d=>d.name.toLowerCase().includes(query)).sort((a,b)=>$('library-sort').value==='size'?b.size-a.size:$('library-sort').value==='recent'?b.added-a.added:a.name.localeCompare(b.name));
-  $('library-count-badge').textContent=`${discs.length} game${discs.length===1?'':'s'}`;$('library-empty').hidden=filtered.length>0;
-  $('library-empty').textContent=discs.length?'No matching games found.':'No games yet. Add a local Xbox disc image.';
+  const source=$('library-source').value;const items=source==='archive'?remoteGames:discs;
+  const filtered=items.filter(d=>d.name.toLowerCase().includes(query)).sort((a,b)=>$('library-sort').value==='size'?b.size-a.size:$('library-sort').value==='recent'?b.added-a.added:a.name.localeCompare(b.name));
+  $('library-count-badge').textContent=`${items.length} game${items.length===1?'':'s'}`;$('library-empty').hidden=filtered.length>0;
+  $('library-empty').textContent=items.length?'No matching games found.':'No games yet. Add a local Xbox disc image.';
   $('selected-disc').textContent=selected?`Selected: ${selected.name}`:'No disc selected — boot dashboard.';
-  for(const disc of filtered){const tr=document.createElement('tr');tr.classList.toggle('selected',disc===selected);
+  for(let disc of filtered){const tr=document.createElement('tr');tr.classList.toggle('selected',disc===selected);
     const title=document.createElement('td');title.textContent=disc.name;const size=document.createElement('td');size.textContent=`${(disc.size/1024**3).toFixed(2)} GB`;
-    const actions=document.createElement('td');actions.append(discButton(disc===selected?'Selected':'Load & Run',async()=>{if(host)await host.loadDisc(disc.file||{opfs:disc.opfs},disc.name);selected=disc;renderLibrary();if(host)status('Disc inserted.');else await bootConsole();}));
-    if(!disc.opfs)actions.append(discButton('Import',async()=>{const entry=await copyFile(disc.file,disc.name);Object.assign(disc,entry);delete disc.file;catalog.discs.push({id:disc.id,...entry});await writeCatalog(catalog);await updateStorage();renderLibrary();status('Disc saved in browser storage.');}));
-    actions.append(discButton(disc.opfs?'Delete copy':'Remove',async()=>{if(host&&disc===selected)throw Error('Eject this disc before removing it.');if(disc.opfs){if(!confirm(`Delete the browser copy of ${disc.name}? Your original file is unchanged.`))return;await removeFile(disc);catalog.discs=catalog.discs.filter(d=>d.id!==disc.id);await writeCatalog(catalog);}discs=discs.filter(d=>d!==disc);if(selected===disc)selected=null;renderLibrary();}));
-    title.append(document.createElement('br'));const badge=document.createElement('small');badge.className='mode-help';badge.textContent=disc.opfs?'Saved in browser':'Local file · this session';title.append(badge);
+    const actions=document.createElement('td');if(!disc.restricted)actions.append(discButton(disc===selected?'Selected':disc.remote?'Extract & Play':'Load & Run',async()=>{if(disc.remote){const cached=discs.find(d=>d.sourceUrl===disc.url);const saved=cached||await prepareGame(disc);if(!cached)discs.push(saved);disc=saved;}if(host)await host.loadDisc(await discSource(disc),disc.name);selected=disc;renderLibrary();if(host)status('Disc inserted.');else await bootConsole();}));
+    if(!disc.remote&&!disc.opfs)actions.append(discButton('Import',async()=>{const entry=await copyFile(disc.file,disc.name);Object.assign(disc,entry);delete disc.file;catalog.discs.push({id:disc.id,...entry});await writeCatalog(catalog);await updateStorage();renderLibrary();status('Disc saved in browser storage.');}));
+    if(!disc.remote)actions.append(discButton(disc.opfs?'Delete copy':'Remove',async()=>{if(host&&disc===selected)throw Error('Eject this disc before removing it.');if(disc.opfs){if(!confirm(`Delete the browser copy of ${disc.name}? Your original file is unchanged.`))return;await removeFile(disc);catalog.discs=catalog.discs.filter(d=>d.id!==disc.id);await writeCatalog(catalog);}discs=discs.filter(d=>d!==disc);if(selected===disc)selected=null;renderLibrary();}));
+    title.append(document.createElement('br'));const badge=document.createElement('small');badge.className='mode-help';badge.textContent=disc.remote?(disc.restricted?'Archive access restricted · add a local copy':'Internet Archive · extract and cache'):disc.opfs?'Saved in browser':'Local file · this session';title.append(badge);
+    if(disc.remote){const link=document.createElement('a');link.href=disc.url.replace('/cors/','/download/');link.target='_blank';link.rel='noopener';link.textContent='Open archive';actions.append(link);}
     tr.append(title,size,actions);$('library').append(tr);
   }
 }
@@ -123,6 +157,7 @@ setInterval(()=>{const s=host?.getStats();if(s){const fps=Math.max(0,s.framesCon
 window.addEventListener('beforeunload',()=>host?.terminate());
 busy=true;controls();
 try{catalog=await readCatalog();discs=[...catalog.discs];for(const [kind,entry]of Object.entries(catalog.console))labelFile(kind,entry.name);await updateStorage();}catch(e){report(e);}
+try{const response=await fetch('./games-library.json');if(!response.ok)throw Error('Catalog unavailable');remoteGames=(await response.json()).games;}catch(e){report(e);}
 busy=false;controls();renderLibrary();
 showLoading('Setting up browser threads…');
 await window.xemuIsolationReady;

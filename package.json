@@ -8,11 +8,12 @@
     "build": "node tools/build.mjs",
     "start": "node tools/serve.mjs",
     "import:runtime": "node tools/import-runtime.mjs",
-    "test": "node tests/smoke.mjs",
+    "test": "node tests/xiso.mjs && node tests/smoke.mjs",
     "test:browser": "node tests/browser.mjs",
     "test:source": "node tests/source.mjs",
     "test:game": "node tests/real-game.mjs",
-    "prepare:game": "node tools/prepare-game.mjs"
+    "prepare:game": "node tools/prepare-game.mjs",
+    "library:generate": "node tools/generate-library.mjs"
   },
   "devDependencies": {
     "playwright-core": "1.64.0"
