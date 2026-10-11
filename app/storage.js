@@ -1,4 +1,10 @@
 const PREFIX = 'xemu-web';
+export async function requestPersistentStorage() {
+  try {
+    if (await navigator.storage.persisted?.()) return true;
+    return !!(await navigator.storage.persist?.());
+  } catch {return false;}
+}
 async function directory() {
   const root = await navigator.storage.getDirectory();
   return root.getDirectoryHandle(PREFIX, {create: true});
@@ -44,5 +50,6 @@ export async function removeFile(entry) {
 }
 export async function storageSummary() {
   const {usage = 0, quota = 0} = await navigator.storage.estimate();
-  return `${(usage / 1024 ** 3).toFixed(2)} GB used / ${(quota / 1024 ** 3).toFixed(1)} GB available quota`;
+  const protectedStorage = await navigator.storage.persisted?.();
+  return `${(usage / 1024 ** 3).toFixed(2)} GB used / ${(quota / 1024 ** 3).toFixed(1)} GB available quota${protectedStorage?' · protected from automatic cleanup':''}`;
 }

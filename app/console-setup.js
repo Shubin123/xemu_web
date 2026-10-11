@@ -3,6 +3,7 @@ import {RetryingRangeReader} from './range-reader.js';
 import {removeFile} from './storage.js';
 export async function bundleManifest(){const response=await fetch(new URL('./console-bundle.json',import.meta.url));if(!response.ok)throw Error('Console bundle manifest unavailable');return response.json();}
 export async function installConsoleBundle({file,existing=[],onProgress=()=>{},signal}={}){
+ if(['mcpx','flash','hdd'].every(kind=>existing.includes(kind)))return {};
  const manifest=await bundleManifest(),needed=Object.keys(manifest.files).filter(kind=>!existing.includes(kind));
  if(!needed.length)return {};
  const reader=new ZipReader(file?new BlobReader(file):new RetryingRangeReader(new URL(manifest.url,import.meta.url).href,manifest.size,{signal}),{checkSignature:true});

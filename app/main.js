@@ -1,7 +1,7 @@
 import {installConsoleBundle} from './console-setup.js';
 import {extractRar,discSource} from './game-import.js';
 import {XemuHost} from './src/xemu-host.js';
-import {readCatalog,writeCatalog,importFile,removeFile,storageSummary} from './storage.js';
+import {readCatalog,writeCatalog,importFile,removeFile,storageSummary,requestPersistentStorage} from './storage.js';
 import {installInput} from './input.js';
 import {showLoading,hideLoading,downloadEngine} from './loading.js';
 import {createDebugTrace} from './debug.js';
@@ -25,22 +25,30 @@ function controls() {
 const action=fn=>async()=>{if(busy)return;busy=true;controls();try{await fn();}catch(e){report(e);}finally{busy=false;controls();}};
 function labelFile(kind, name) {document.querySelector(`label[for="${kind}"]`).textContent=name||`Choose ${kind==='hdd'?'hard disk image':kind.toUpperCase()}…`;}
 for(const kind of ['mcpx','flash','hdd','eeprom'])$(kind).onchange=()=>labelFile(kind,$(kind).files[0]?.name||catalog.console[kind]?.name);
-async function copyFile(file, label) {
+async function copyFile(file, label, signal) {
   status(`Importing ${label}…`);showLoading(`Importing ${label}…`,0,'0%');
-  try {return await importFile(file,ratio=>showLoading(`Importing ${label}…`,ratio,`${Math.round(ratio*100)}%`));}
+  try {return await importFile(file,ratio=>showLoading(`Importing ${label}…`,ratio,`${Math.round(ratio*100)}%`),signal);}
   finally {hideLoading();}
 }
 async function updateStorage() {try{$('storage').textContent=`Files saved on this device. ${await storageSummary()}`;}catch{$('storage').textContent='Browser storage unavailable.';}}
+function showCachedConsole() {
+ const cached=['mcpx','flash','hdd'].filter(kind=>catalog.console[kind]);
+ $('get-console').textContent=cached.length===3?'Use cached console files':'Download & configure console files';
+ if(cached.length===3)$('console-setup-status').textContent='Console files ready · cached on this device. MCPX, BIOS and hard disk are reused for every game.';
+ else if(cached.length)$('console-setup-status').textContent=`${cached.length} of 3 console files cached on this device. Setup downloads only missing files.`;
+}
 async function setupConsole(file){
  setupController=new AbortController();$('cancel-setup').hidden=false;
  let entries;
  try{
-  const existing=['mcpx','flash','hdd'].filter(kind=>catalog.console[kind]||$(kind).files[0]);
+  await requestPersistentStorage();
+  await cacheConsoleSelections(setupController.signal);
+  const existing=['mcpx','flash','hdd'].filter(kind=>catalog.console[kind]);
   entries=await installConsoleBundle({file,existing,signal:setupController.signal,onProgress:(text,ratio)=>{status(text);$('console-setup-status').textContent=text;showLoading(text,ratio);}});
   const next={...catalog,console:{...catalog.console,...entries}};
   try{await writeCatalog(next);}catch(error){for(const entry of Object.values(entries))await removeFile(entry).catch(()=>{});throw error;}
   catalog=next;for(const [kind,entry]of Object.entries(entries))labelFile(kind,entry.name);
-  await updateStorage();$('console-setup-status').textContent='Console files ready. These files are reused for every game.';status('Console files ready. Choose Load & Run to start the selected game.');
+  await updateStorage();showCachedConsole();status('Console files cached on this device. Choose Load & Run to start the selected game.');
  }catch(error){$('console-setup-status').textContent=error.message||String(error);throw error;}
  finally{setupController=null;$('cancel-setup').hidden=true;hideLoading();}
 }
@@ -50,6 +58,14 @@ async function prepareConsole() {
   const missing=['mcpx','flash','hdd'].filter(kind=>!catalog.console[kind]&&!$(kind).files[0]);
   debug.record('console-files',{missing,present:['mcpx','flash','hdd','eeprom'].filter(kind=>catalog.console[kind]||$(kind).files[0])});
   if(missing.length)throw Error(`Missing console files: ${missing.map(kind=>({mcpx:'MCPX boot ROM',flash:'flash BIOS',hdd:'qcow2 hard disk image'})[kind]).join(', ')}. Use Download & configure console files, or select them individually in Console Files.`);
+  await requestPersistentStorage();
+  await cacheConsoleSelections();
+  await updateStorage();showCachedConsole();
+  const files={};for(const [kind,entry]of Object.entries(catalog.console))files[kind]={opfs:entry.opfs,writable:kind==='hdd'||kind==='eeprom'};
+  return files;
+}
+async function cacheConsoleSelections(signal) {
+  signal?.throwIfAborted();
   for(const kind of ['mcpx','flash','hdd','eeprom']) {
     const file=$(kind).files[0];if(!file)continue;
     if(kind==='hdd') {
@@ -58,12 +74,11 @@ async function prepareConsole() {
       if(magic.length!==4||magic[0]!==0x51||magic[1]!==0x46||magic[2]!==0x49||magic[3]!==0xfb)throw Error('This file is not a qcow2 disk image');
       if(catalog.console.hdd&&!confirm('Use this new hard disk? The previous browser copy and its saves will be kept, but will no longer be the active disk.'))throw Error('Hard disk change cancelled');
     }
-    const entry=await copyFile(file,file.name);
-    catalog.console[kind]=entry;await writeCatalog(catalog);$(kind).value='';labelFile(kind,entry.name);
+    const entry=await copyFile(file,file.name,signal);
+    const next={...catalog,console:{...catalog.console,[kind]:entry}};
+    try{await writeCatalog(next);}catch(error){await removeFile(entry).catch(()=>{});throw error;}
+    catalog=next;$(kind).value='';labelFile(kind,entry.name);
   }
-  await updateStorage();
-  const files={};for(const [kind,entry]of Object.entries(catalog.console))files[kind]={opfs:entry.opfs,writable:kind==='hdd'||kind==='eeprom'};
-  return files;
 }
 async function bootConsole(){
   debug.record('boot-request',{disc:selected?.name||null,cached:!!selected?.opfs,isolated:crossOriginIsolated,renderer:$('renderer').value});
@@ -190,7 +205,7 @@ let previousFrames=0;
 setInterval(()=>{const s=host?.getStats();if(s){const fps=Math.max(0,s.framesConsumed-previousFrames);previousFrames=s.framesConsumed;$('stats').textContent=` · ${fps} FPS · ${s.width}×${s.height} · audio queue ${s.audioQueuedFrames} frames`;}else{previousFrames=0;$('stats').textContent=' · Console off';}},1000);
 window.addEventListener('beforeunload',()=>host?.terminate());
 busy=true;controls();
-try{catalog=await readCatalog();discs=[...catalog.discs];for(const [kind,entry]of Object.entries(catalog.console))labelFile(kind,entry.name);await updateStorage();}catch(e){report(e);}
+try{catalog=await readCatalog();discs=[...catalog.discs];for(const [kind,entry]of Object.entries(catalog.console))labelFile(kind,entry.name);await updateStorage();showCachedConsole();if(['mcpx','flash','hdd'].every(kind=>catalog.console[kind]))status('Console files cached on this device. Choose a game to play.');}catch(e){report(e);}
 try{const response=await fetch('./games-library.json');if(!response.ok)throw Error('Catalog unavailable');remoteGames=(await response.json()).games;}catch(e){report(e);}
 busy=false;controls();renderLibrary();
 showLoading('Setting up browser threads…');

@@ -1,5 +1,8 @@
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {chromium} from 'playwright-core';
 import {chromePath} from './chrome.mjs';
 import {buildFlash} from './fixtures/test-flash.js';
@@ -10,10 +13,11 @@ const hdd=new Uint8Array(9*1024**2);hdd.set(createQcow2());
 const bytes={mcpx:new Uint8Array(512),flash:buildFlash(10),hdd};
 const files=Object.fromEntries(Object.entries(bytes).map(([kind,data])=>[kind,{path:`${kind}/${kind==='hdd'?'xbox_hdd.qcow2':kind+'.bin'}`,name:kind==='hdd'?'xbox_hdd.qcow2':kind+'.bin',size:data.length,sha256:createHash('sha256').update(data).digest('hex')}])) ;
 const zip=new ZipWriter(new Uint8ArrayWriter(),{useWebWorkers:false});for(const [kind,data]of Object.entries(bytes))await zip.add(files[kind].path,new Uint8ArrayReader(data),{level:0});const packed=Buffer.from(await zip.close());
-const server=spawn(process.execPath,['tools/serve.mjs'],{env:{...process.env,PORT:'0'},stdio:['ignore','pipe','inherit']});let browser;
+const server=spawn(process.execPath,['tools/serve.mjs'],{env:{...process.env,PORT:'0'},stdio:['ignore','pipe','inherit']});let browser,profile,context;
 try{
  const url=await new Promise(r=>server.stdout.once('data',d=>r(d.toString().trim())));
  browser=await chromium.launch({executablePath:chromePath(),headless:true});const page=await browser.newPage({serviceWorkers:'block'});page.setDefaultTimeout(30000);let downloads=0;
+ await page.addInitScript(()=>{navigator.storage.persisted=async()=>false;navigator.storage.persist=async()=>{window.persistenceRequests=(window.persistenceRequests||0)+1;return false;};});
  await page.route('**/console-bundle.json*',route=>route.fulfill({json:{url:'./console-files.zip',size:packed.length,files}}));
  const ranges=[];let droppedRange;
  await page.route('**/console-files.zip*',route=>{downloads++;const range=route.request().headers().range;let start=0,end=packed.length-1;if(range){ranges.push(range);const m=/bytes=(\d*)-(\d*)/.exec(range);if(m[1]){start=Number(m[1]);if(m[2])end=Math.min(end,Number(m[2]));}else start=Math.max(0,packed.length-Number(m[2]));}
@@ -23,14 +27,23 @@ try{
  await page.goto(url);await page.waitForFunction(()=>!document.getElementById('boot').disabled);
  await page.locator('#get-console').click();await page.waitForFunction(()=>!document.getElementById('boot').disabled);assert.match(await page.locator('#console-setup-status').textContent(),/Console files ready/);
  const installed=await page.evaluate(async()=>{const {readCatalog}=await import('./storage.js');return (await readCatalog()).console;});assert.deepEqual(Object.keys(installed).sort(),['flash','hdd','mcpx']);assert.ok(downloads>0);
+ assert.equal(await page.evaluate(()=>window.persistenceRequests),1,'Setup requests persistent storage, and still caches if protection is declined');
  assert.ok(droppedRange,'Exercise a dropped HDD download chunk');assert.equal(ranges.filter(range=>range===droppedRange).length,2,'Retry only the interrupted chunk');
  assert.ok(ranges.every(range=>{const [,start,end]=/bytes=(\d+)-(\d+)/.exec(range);return Number(end)-Number(start)+1<=4*1024**2;}),'Bound request size');
  await page.reload();await page.waitForFunction(()=>!document.getElementById('boot').disabled);assert.equal(await page.locator('label[for=hdd]').textContent(),'xbox_hdd.qcow2');
+ assert.match(await page.locator('#console-setup-status').textContent(),/cached on this device/);
+ assert.equal(await page.locator('#get-console').textContent(),'Use cached console files');
+ await page.route('**/console-bundle.json*',route=>route.abort());
  const previous=downloads;await page.locator('#get-console').click();await page.waitForFunction(()=>!document.getElementById('boot').disabled);assert.match(await page.locator('#console-setup-status').textContent(),/Console files ready/);assert.equal(downloads,previous,'Existing HDD must not be downloaded/replaced');
  assert.equal(await page.evaluate(async()=>{const {readCatalog}=await import('./storage.js');return (await readCatalog()).console.hdd.opfs;}),installed.hdd.opfs);
  const other=await browser.newPage({serviceWorkers:'block'});other.setDefaultTimeout(30000);await other.route('**/console-bundle.json*',route=>route.fulfill({json:{url:'./console-files.zip',size:packed.length,files}}));await other.goto(url);await other.waitForFunction(()=>!document.getElementById('boot').disabled);
  // Each page gets a different context so this checks independent client setup.
  await other.locator('#console-zip').setInputFiles({name:'generated-console.zip',mimeType:'application/zip',buffer:packed});await other.waitForFunction(()=>!document.getElementById('boot').disabled);assert.match(await other.locator('#console-setup-status').textContent(),/Console files ready/);
+ const manual=await browser.newPage({serviceWorkers:'block'});manual.setDefaultTimeout(30000);await manual.route('**/console-bundle.json*',route=>route.abort());await manual.route('**/console-files.zip*',route=>route.abort());await manual.goto(url);await manual.waitForFunction(()=>!document.getElementById('boot').disabled);
+ for(const kind of ['mcpx','flash','hdd'])await manual.locator('#'+kind).setInputFiles({name:files[kind].name,mimeType:'application/octet-stream',buffer:Buffer.from(bytes[kind])});
+ await manual.locator('#get-console').click();await manual.waitForFunction(()=>!document.getElementById('boot').disabled);
+ assert.match(await manual.locator('#console-setup-status').textContent(),/cached on this device/);
+ await manual.reload();await manual.waitForFunction(()=>!document.getElementById('boot').disabled);assert.equal(await manual.locator('label[for=hdd]').textContent(),'xbox_hdd.qcow2');assert.match(await manual.locator('#console-setup-status').textContent(),/cached on this device/);
  const broken=await browser.newPage({serviceWorkers:'block'});
  broken.setDefaultTimeout(30000);
  await broken.route('**/console-bundle.json*',route=>route.fulfill({json:{url:'./console-files.zip',size:packed.length,files:{...files,flash:{...files.flash,sha256:'0'.repeat(64)}}}}));
@@ -39,5 +52,18 @@ try{
  assert.match(await broken.locator('#console-setup-status').textContent(),/flash checksum mismatch/);
  const remaining=await broken.evaluate(async()=>{const {readCatalog}=await import('./storage.js');const root=await navigator.storage.getDirectory(),dir=await root.getDirectoryHandle('xemu-web');return {catalog:await readCatalog(),files:await Array.fromAsync(dir.keys())};});
  assert.deepEqual(remaining.catalog.console,{});assert.deepEqual(remaining.files,[],'Failed setup must remove partial imports');
- console.log('Console ZIP chunk retry/local import, validation rollback, reuse across reloads and HDD preservation passed');
-}finally{await browser?.close();server.kill();}
+ await browser.close();browser=null;
+ profile=mkdtempSync(join(tmpdir(),'xemu-console-cache-'));
+ const options={executablePath:chromePath(),headless:true,serviceWorkers:'block'};
+ context=await chromium.launchPersistentContext(profile,options);
+ let session=await context.newPage();session.setDefaultTimeout(30000);await session.goto(url);await session.waitForFunction(()=>!document.getElementById('boot').disabled);
+ for(const kind of ['mcpx','flash','hdd'])await session.locator('#'+kind).setInputFiles({name:files[kind].name,mimeType:'application/octet-stream',buffer:Buffer.from(bytes[kind])});
+ await session.locator('#get-console').click();await session.waitForFunction(()=>!document.getElementById('boot').disabled);assert.match(await session.locator('#console-setup-status').textContent(),/cached on this device/);
+ await context.close();context=await chromium.launchPersistentContext(profile,options);
+ session=await context.newPage();session.setDefaultTimeout(30000);await session.route('**/console-bundle.json*',route=>route.abort());await session.route('**/console-files.zip*',route=>route.abort());await session.goto(url);await session.waitForFunction(()=>!document.getElementById('boot').disabled);
+ assert.equal(await session.locator('#get-console').textContent(),'Use cached console files');assert.match(await session.locator('#console-setup-status').textContent(),/cached on this device/);
+ const savedHashes=await session.evaluate(async()=>{const {readCatalog}=await import('./storage.js');const catalog=await readCatalog(),root=await navigator.storage.getDirectory(),dir=await root.getDirectoryHandle('xemu-web'),hashes={};for(const [kind,entry]of Object.entries(catalog.console)){const file=await(await dir.getFileHandle(entry.opfs.split('/')[1])).getFile();hashes[kind]=[...new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))].map(b=>b.toString(16).padStart(2,'0')).join('');}return hashes;});
+ assert.deepEqual(savedHashes,Object.fromEntries(Object.entries(files).map(([kind,file])=>[kind,file.sha256])),'All cached bytes survive a browser restart');
+ await session.locator('#get-console').click();await session.waitForFunction(()=>!document.getElementById('boot').disabled);assert.match(await session.locator('#console-setup-status').textContent(),/cached on this device/);
+ console.log('Console ZIP chunk retry/local/manual import, persistence request, cached browser restart without bundle access, validation rollback and HDD preservation passed');
+}finally{await context?.close();await browser?.close();if(profile)rmSync(profile,{recursive:true,force:true});server.kill();}
