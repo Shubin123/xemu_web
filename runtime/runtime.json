@@ -1,39 +1,39 @@
 {
   "schemaVersion": 1,
   "backend": "Shubin123/xemu_emscripten",
-  "backendCommit": "c4d766ebbf6e3d842d61b344f38a50816ed7c85c",
-  "sourceArchiveSha256": "2380badf5850de8436f3b1ee3efdaab2ef916f8d3d8c2fed5099e8bcab544fd0",
-  "coreId": "sha256:4d47d83563010dce6ef0f8eebd4550e3152f4934887111a6b9556b060eedef7a",
+  "backendCommit": "6e4b60195e37569e56d6249dbf45e99dbd4713a9",
+  "sourceArchiveSha256": "4053ae4759743abb2bc15af9f9dabc93da0a499b16d0ed40ae5161720bc72e56",
+  "coreId": "sha256:6abfdd94ff61275637d564df846cda34aa2c66d8cd844ff750003a37dc440a93",
   "files": [
     {
       "path": "cores/xemu/xemu-core.build.json",
       "size": 667,
-      "sha256": "899f07bc81fb17964e5daa56b315dfc5b801113835df1de73ce2f746e08125d5"
+      "sha256": "f5fa9eb3d1173d8f7ae53a5f5589c008b5dcdf69445770b3276af8cf62fae222"
     },
     {
       "path": "cores/xemu/xemu-core.js",
-      "size": 294214,
-      "sha256": "2b5769f4dc546ad53c0dff1d0b420a1854af58467aff0239b1e62f59e6e53404"
+      "size": 294877,
+      "sha256": "46ece8b7c4c20b43e9d1db9e0ad961f56aefff2e6bd75cdca818eff1889b5afa"
     },
     {
       "path": "cores/xemu/xemu-core.wasm",
-      "size": 11752489,
-      "sha256": "4d47d83563010dce6ef0f8eebd4550e3152f4934887111a6b9556b060eedef7a"
+      "size": 11758819,
+      "sha256": "6abfdd94ff61275637d564df846cda34aa2c66d8cd844ff750003a37dc440a93"
     },
     {
       "path": "source/xemu-source.tar.gz.part00",
       "size": 33554432,
-      "sha256": "87880345d6039c730a831af32bee023d266fd3eca8f5744fb9f023f9d4e39f92"
+      "sha256": "992677908f9d5516d625278f67b3f0730b8678aacb5a3d7f155623fe8335629e"
     },
     {
       "path": "source/xemu-source.tar.gz.part01",
       "size": 33554432,
-      "sha256": "1f6c54887d9a7dae9bf83b4746a0175a0961525f164cfe8a61416a28b0cef139"
+      "sha256": "333c6f504049e541d460821af5ddf8e26f59e698827a1e68d6f325dc83393665"
     },
     {
       "path": "source/xemu-source.tar.gz.part02",
-      "size": 25552413,
-      "sha256": "6044e6646d019e456385d4a0f4b11e4da2fc78d5ca707606a5f2c46f79931bd9"
+      "size": 25563157,
+      "sha256": "8dbf3a29f9ed32f2922839bc6bd564e1e95b10378268fa3b2ca3c73e0b0dc000"
     },
     {
       "path": "src/xemu-audio-worklet.js",

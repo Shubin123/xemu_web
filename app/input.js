@@ -15,7 +15,8 @@ export function installInput(getHost, report) {
   let connected = [true,false,false,false], lastHost;
   let lastGamepads = '';
   for (const type of ['keydown','keyup']) window.addEventListener(type, e => {
-    if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+    if (type === 'keyup') keys.delete(e.code);
+    if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
     if (keyboard[e.code] || axisKeys.includes(e.code)) {
       e.preventDefault();
       type === 'keydown' ? keys.add(e.code) : keys.delete(e.code);

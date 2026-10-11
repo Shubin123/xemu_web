@@ -1,5 +1,6 @@
 // Opt-in local-media test. Files enter an isolated browser profile through file inputs;
 // they are never served by HTTP, copied into the repository, or published.
+import {createHash} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {existsSync,mkdirSync,writeFileSync,readFileSync} from 'node:fs';
 import {chromium} from 'playwright-core';
@@ -16,28 +17,36 @@ try {
   browser=await chromium.launch({executablePath:chromePath(),headless:true,args:['--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.goto(url);await page.waitForFunction(()=>!document.getElementById('boot').disabled);
+  await page.goto(process.env.TARGET_URL||url);await page.waitForFunction(()=>!document.getElementById('boot').disabled);
   for(const [id,path]of Object.entries(paths))if(path)await page.locator(`#${id}`).setInputFiles(path);
-  await page.locator('#library button').filter({hasText:'Load & Run'}).click();
+  await page.locator('#boot').click();
+  await page.waitForFunction(()=>!document.getElementById('audio').disabled,{},{timeout:90000});
+  await page.locator('#audio').click();
   mkdirSync('tests/artifacts',{recursive:true});
-  await page.waitForFunction(()=>document.getElementById('status').textContent==='Console running'||(!document.getElementById('boot').disabled&&document.getElementById('loading-panel').hidden),null,{timeout:600000}).catch(()=>{});
+  await page.waitForFunction(()=>document.getElementById('status').textContent==='Console running'||(!document.getElementById('boot').disabled&&document.getElementById('loading-panel').hidden),null,{timeout:90000}).catch(()=>{});
   const frames=[];
-  for(let i=0;i<3;i++) {
-    await page.waitForTimeout(10000);
+  for(let i=0;i<8;i++) {
+    await page.waitForTimeout(5000);
+    if(i===2||i===4){await page.keyboard.down('Enter');await page.waitForTimeout(1500);await page.keyboard.up('Enter');await page.keyboard.down('z');await page.waitForTimeout(1500);await page.keyboard.up('z');}
     await page.screenshot({path:`tests/artifacts/game-${i}.png`,fullPage:false});
     const png=await page.locator('#screen').evaluate(canvas=>canvas.toDataURL('image/png'));
-    writeFileSync(`tests/artifacts/game-framebuffer-${i}.png`,Buffer.from(png.split(',')[1],'base64'));
+    const pngBytes=Buffer.from(png.split(',')[1],'base64');
+    writeFileSync(`tests/artifacts/game-framebuffer-${i}.png`,pngBytes);
     frames.push(await page.locator('#screen').evaluate(canvas=>{
       const copy=new OffscreenCanvas(canvas.width,canvas.height),ctx=copy.getContext('2d');
       ctx.drawImage(canvas,0,0);const pixels=ctx.getImageData(0,0,copy.width,copy.height).data;
+      const colors=new Set();
       let nonblackPixels=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i]||pixels[i+1]||pixels[i+2])nonblackPixels++;
-      return {width:copy.width,height:copy.height,nonblackPixels};
+      for(let i=0;i<pixels.length;i+=4)colors.add((pixels[i]<<16)|(pixels[i+1]<<8)|pixels[i+2]);
+      return {width:copy.width,height:copy.height,nonblackPixels,distinctColors:colors.size};
     }));
+    frames.at(-1).sha256=createHash('sha256').update(pngBytes).digest('hex');
     console.log(await page.locator('#status').textContent(),await page.locator('#stats').textContent());
     if(await page.locator('#boot').isEnabled())break;
   }
   const report=await page.evaluate(()=>({status:document.getElementById('status').textContent,stats:document.getElementById('stats').textContent,log:document.getElementById('logs').textContent}));
   writeFileSync('tests/artifacts/game-report.json',JSON.stringify({...report,frames,errors},null,2));
-  if(report.status!=='Console running'||errors.length||!frames.some(frame=>frame.nonblackPixels>0))process.exitCode=1;
+  if(report.status!=='Console running'||errors.length||!frames.some(frame=>frame.distinctColors>16)||new Set(frames.map(frame=>frame.sha256)).size<2)process.exitCode=1;
+  if(process.exitCode)console.error('Game verification failed: expected varied, advancing game frames; solid-color or frozen output is a failure.');
   console.log('Local run captured in ignored tests/artifacts/; inspect screenshots to confirm actual game rendering.');
 } finally {await browser?.close();child.kill();}
