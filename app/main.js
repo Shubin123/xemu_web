@@ -7,13 +7,13 @@ import {createDebugTrace} from './debug.js';
 const $=id=>document.getElementById(id);
 let host, selected, paused=false, busy=false, sound=false;
 let catalog={console:{},discs:[]}, discs=[], remoteGames=[];
-let importController;
+let importController, pendingArchive;
 $('cancel-import').onclick=()=>importController?.abort();
 const debug=createDebugTrace({log:$('logs'),canvas:$('screen'),getStats:()=>host?.getStats()||null});
 $('export-debug').onclick=()=>debug.export();
 $('capture-frame').onclick=()=>debug.capture().catch(report);
 const status=text=>{$('status').textContent=text;};
-const report=error=>{hideLoading();debug.record('error',{message:error.message||String(error),stack:error.stack||null});status(error.message||String(error));};
+const report=error=>{$('library-status').textContent=error.message||String(error);hideLoading();debug.record('error',{message:error.message||String(error),stack:error.stack||null});status(error.message||String(error));};
 function controls() {
   for(const id of ['pause','stop','reset','audio','save','refresh','eject'])$(id).disabled=!host?.memory||busy;
   $('boot').disabled=!!host||busy;
@@ -92,13 +92,20 @@ async function fullscreen(){if(document.fullscreenElement)await document.exitFul
 $('fullscreen').onclick=$('stage-fullscreen').onclick=$('exit-fullscreen').onclick=()=>fullscreen().catch(report);
 window.addEventListener('keydown',e=>{if(e.altKey&&e.code==='Enter'){e.preventDefault();fullscreen().catch(report);}});
 $('clear-log').onclick=()=>debug.clear();
-$('browse-library').onclick=()=>{$('library-section').scrollIntoView({behavior:'smooth'});$('library-search').focus({preventScroll:true});};
+$('browse-library').onclick=()=>{$('library-source').value='all';$('library-search').value='';renderLibrary();$('library-section').scrollIntoView({behavior:'smooth'});$('library-search').focus({preventScroll:true});};
 $('keymap-toggle').onclick=()=>{const card=document.querySelector('[data-widget="keymap"]');window.XemuLayout.show('keymap');card.scrollIntoView({behavior:'smooth'});};
-$('discs').onchange=action(async()=>{const files=[...$('discs').files];$('discs').value='';for(const file of files){
-  if(/\.rar$/i.test(file.name)){const entry=await prepareGame({file,name:file.name});discs.push(entry);}
-  else if(/\.(iso|xiso)$/i.test(file.name))discs.push({id:crypto.randomUUID(),name:file.name,size:file.size,added:Date.now(),file});
+$('discs').onchange=action(async()=>{const files=[...$('discs').files];const requested=pendingArchive;pendingArchive=null;$('discs').value='';for(const file of files){
+  const archive=requested||remoteGames.find(game=>game.name.toLowerCase()===file.name.toLowerCase());
+  if(/\.rar$/i.test(file.name)){const entry=await prepareGame({file,name:file.name,...(archive?{url:archive.url,id:archive.id}:{})});discs.push(entry);selected=entry;}
+  else if(/\.(iso|xiso)$/i.test(file.name)){const entry={id:crypto.randomUUID(),name:file.name,size:file.size,added:Date.now(),file};discs.push(entry);selected=entry;}
   else throw Error('Choose an Xbox ISO, XISO or RAR archive');
-}renderLibrary();status('Games added. Choose Load & Run in the local library.');});
+}$('library-status').textContent='';$('library-source').value='local';$('library-search').value='';renderLibrary();status(selected?.opfs?'Game added and selected. Choose Load & Run.':'Game added and selected for this session. Choose Load & Run.');});
+async function fetchGame(disc,signal){
+ const urls=[disc.url.replace('/cors/','/download/'),disc.url];let lastResponse,lastError;
+ for(const url of urls){try{const response=await fetch(url,{signal});if(response.ok)return response;lastResponse=response;}catch(error){if(signal.aborted)throw error;lastError=error;}}
+ if(lastResponse)return lastResponse;
+ throw Error(`Cannot download ${disc.name} from Internet Archive. Open archive to check sign-in/access, or choose a local copy. ${lastError?.message||''}`);
+}
 async function prepareGame(disc){
  if(disc.opfs)return disc;
  importController=new AbortController();$('cancel-import').hidden=false;
@@ -106,19 +113,27 @@ async function prepareGame(disc){
  try{
   let file=disc.file;
   if(!file){
-   showLoading(`Downloading ${disc.name}…`,0);const response=await fetch(disc.url,{signal:importController.signal});
-   if(!response.ok)throw Error(`Archive download HTTP ${response.status}. Open the archive link to check access, or choose a local copy.`);
+   showLoading(`Downloading ${disc.name}…`,0);const response=await fetchGame(disc,importController.signal);
+   if(!response.ok)throw Error(`Internet Archive returned HTTP ${response.status}. Use Open archive to check download access, or choose a local copy to play and cache this game.`);
    const length=Number(response.headers.get('content-length'))||disc.size;
-   temporary=await importFile({name:disc.name,size:length,stream:()=>response.body},ratio=>showLoading(`Downloading ${disc.name}…`,ratio),importController.signal);
-   const root=await navigator.storage.getDirectory();const dir=await root.getDirectoryHandle('xemu-web');file=await(await dir.getFileHandle(temporary.opfs.split('/').at(-1))).getFile();
-   file=new File([file],disc.name);
+   try{
+    temporary=await importFile({name:disc.name,size:length,stream:()=>response.body},ratio=>showLoading(`Downloading ${disc.name}…`,ratio),importController.signal);
+    const root=await navigator.storage.getDirectory();const dir=await root.getDirectoryHandle('xemu-web');file=await(await dir.getFileHandle(temporary.opfs.split('/').at(-1))).getFile();
+    file=new File([file],disc.name);
+   }catch(error){
+    if(importController.signal.aborted)throw error;
+    if(!['QuotaExceededError','SecurityError','NotAllowedError','InvalidStateError'].includes(error.name))throw error;
+    showLoading('Browser cache unavailable — downloading for this session…');
+    const retry=await fetchGame(disc,importController.signal);if(!retry.ok)throw Error(`Archive download HTTP ${retry.status}`);
+    file=new File([await retry.blob()],disc.name);
+   }
   }
   let entry;
   if(/\.rar$/i.test(disc.name))entry=await extractRar(file,(ratio,label)=>showLoading(label,ratio),importController.signal);
   else entry=temporary||await copyFile(file,disc.name);
   if(entry===temporary)temporary=null;
   const saved={id:disc.id||crypto.randomUUID(),...entry,...(disc.url?{sourceUrl:disc.url}:{})};
-  try{catalog.discs.push(saved);await writeCatalog(catalog);}catch(error){catalog.discs=catalog.discs.filter(d=>d!==saved);await removeFile(saved);throw error;}
+  try{if(saved.opfs){catalog.discs.push(saved);await writeCatalog(catalog);}}catch(error){catalog.discs=catalog.discs.filter(d=>d!==saved);await removeFile(saved);throw error;}
   await updateStorage();return saved;
  }finally{if(temporary)await removeFile(temporary);importController=null;$('cancel-import').hidden=true;hideLoading();}
 }
@@ -127,18 +142,20 @@ $('library-search').oninput=renderLibrary;$('library-sort').onchange=renderLibra
 function discButton(text,fn){const b=document.createElement('button');b.className='btn btn-secondary library-action';b.textContent=text;b.onclick=action(fn);return b;}
 function renderLibrary(){
   $('library').replaceChildren();const query=$('library-search').value.toLowerCase().trim();
-  const source=$('library-source').value;const items=source==='archive'?remoteGames:discs;
+  const source=$('library-source').value;const items=source==='archive'?remoteGames:source==='local'?discs:[...discs,...remoteGames.filter(game=>!discs.some(d=>d.sourceUrl===game.url))];
   const filtered=items.filter(d=>d.name.toLowerCase().includes(query)).sort((a,b)=>$('library-sort').value==='size'?b.size-a.size:$('library-sort').value==='recent'?b.added-a.added:a.name.localeCompare(b.name));
   $('library-count-badge').textContent=`${items.length} game${items.length===1?'':'s'}`;$('library-empty').hidden=filtered.length>0;
   $('library-empty').textContent=items.length?'No matching games found.':'No games yet. Add a local Xbox disc image.';
   $('selected-disc').textContent=selected?`Selected: ${selected.name}`:'No disc selected — boot dashboard.';
   for(let disc of filtered){const tr=document.createElement('tr');tr.classList.toggle('selected',disc===selected);
     const title=document.createElement('td');title.textContent=disc.name;const size=document.createElement('td');size.textContent=`${(disc.size/1024**3).toFixed(2)} GB`;
-    const actions=document.createElement('td');if(!disc.restricted)actions.append(discButton(disc===selected?'Selected':disc.remote?'Extract & Play':'Load & Run',async()=>{if(disc.remote){const cached=discs.find(d=>d.sourceUrl===disc.url);const saved=cached||await prepareGame(disc);if(!cached)discs.push(saved);disc=saved;}if(host)await host.loadDisc(await discSource(disc),disc.name);selected=disc;renderLibrary();if(host)status('Disc inserted.');else await bootConsole();}));
-    if(!disc.remote&&!disc.opfs)actions.append(discButton('Import',async()=>{const entry=await copyFile(disc.file,disc.name);Object.assign(disc,entry);delete disc.file;catalog.discs.push({id:disc.id,...entry});await writeCatalog(catalog);await updateStorage();renderLibrary();status('Disc saved in browser storage.');}));
+    const cached=disc.remote?discs.find(d=>d.sourceUrl===disc.url):disc;
+    const actions=document.createElement('td');actions.append(discButton(disc===selected?'Selected':disc.remote?(cached?'Play cached':'Play'):'Load & Run',async()=>{$('library-status').textContent='';if(disc.remote){const saved=cached||await prepareGame(disc);if(!cached)discs.push(saved);disc=saved;}if(host)await host.loadDisc(await discSource(disc),disc.name);selected=disc;renderLibrary();if(host)status('Disc inserted.');else await bootConsole();}));
+    if(disc.remote&&!cached)actions.append(discButton('Cache',async()=>{$('library-status').textContent='';const saved=await prepareGame(disc);discs.push(saved);renderLibrary();status(saved.opfs?'Game cached. Choose Play cached to run it.':'Browser cache unavailable; game is ready for this session.');}));
+    if(!disc.remote&&!disc.opfs)actions.append(discButton('Cache',async()=>{const entry=await copyFile(disc.file,disc.name);Object.assign(disc,entry);delete disc.file;catalog.discs.push({id:disc.id,...entry,...(disc.sourceUrl?{sourceUrl:disc.sourceUrl}:{})});await writeCatalog(catalog);await updateStorage();renderLibrary();status('Disc saved in browser storage.');}));
     if(!disc.remote)actions.append(discButton(disc.opfs?'Delete copy':'Remove',async()=>{if(host&&disc===selected)throw Error('Eject this disc before removing it.');if(disc.opfs){if(!confirm(`Delete the browser copy of ${disc.name}? Your original file is unchanged.`))return;await removeFile(disc);catalog.discs=catalog.discs.filter(d=>d.id!==disc.id);await writeCatalog(catalog);}discs=discs.filter(d=>d!==disc);if(selected===disc)selected=null;renderLibrary();}));
-    title.append(document.createElement('br'));const badge=document.createElement('small');badge.className='mode-help';badge.textContent=disc.remote?(disc.restricted?'Archive access restricted · add a local copy':'Internet Archive · extract and cache'):disc.opfs?'Saved in browser':'Local file · this session';title.append(badge);
-    if(disc.remote){const link=document.createElement('a');link.href=disc.url.replace('/cors/','/download/');link.target='_blank';link.rel='noopener';link.textContent='Open archive';actions.append(link);}
+    title.append(document.createElement('br'));const badge=document.createElement('small');badge.className='mode-help';badge.textContent=disc.remote?(cached?(cached.opfs?'Cached · ready to play':'Ready this session'):disc.restricted?'Internet Archive · may require sign-in':'Internet Archive · download and cache'):disc.opfs?'Saved in browser':'Local file · this session';title.append(badge);
+    if(disc.remote){const choose=document.createElement('button');choose.className='btn btn-secondary library-action';choose.textContent='Choose local copy';choose.onclick=()=>{if(busy)return;pendingArchive=disc;$('discs').click();};actions.append(choose);const link=document.createElement('a');link.href=disc.url.replace('/cors/','/download/');link.target='_blank';link.rel='noopener';link.textContent='Open archive';actions.append(link);}
     tr.append(title,size,actions);$('library').append(tr);
   }
 }

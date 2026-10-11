@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {blobImageWriter} from '../app/blob-image.js';
 import {planXiso,writeXiso} from '../app/xiso.js';
 const entries=['Game/default.xbe','Game/a.txt',...Array.from({length:140},(_,i)=>`Game/Sub/File${i.toString().padStart(3,'0')}.dat`)].map(name=>({name,size:4,bytes:async()=>new TextEncoder().encode('XBEH')}));
 const plan=planXiso(entries);let output;
@@ -14,3 +15,5 @@ assert.throws(()=>planXiso([...entries,{name:'Game/A.TXT',size:1}]),/Duplicate/)
 assert.throws(()=>planXiso([]),/default.xbe/);
 assert.throws(()=>planXiso([...entries,{name:'Other/default.xbe',size:4}]),/one game/);
 console.log('XDVDFS directory trees, sector boundaries, file payloads and unsafe archives passed');
+
+const blobWriter=blobImageWriter();await writeXiso(entries,blobWriter);const blob=blobWriter.file('generated-test.xiso');assert.deepEqual(new Uint8Array(await blob.arrayBuffer()),output);console.log('Session Blob disc matches cached image byte for byte');

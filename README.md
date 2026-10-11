@@ -136,9 +136,16 @@ saved as playable discs in OPFS. Archives containing an extracted game tree
 the cached disc without extracting again. Console firmware is still required.
 
 The library source selector includes Internet Archive's `mxogcx-xbox-ztm`
-collection. Refresh its metadata with `npm run library:generate`. Restricted
-entries link to Archive and can be imported from a local download; unrestricted
-entries offer Extract & Play. Interrupted downloads never enter the catalog.
+collection. Refresh its metadata with `npm run library:generate`. The full collection is visible by default, and every entry offers Play, Cache
+and Choose local copy. Play reuses a cached disc across visits without downloading
+or extracting it again. Archive download access errors appear in the library.
+A downloaded local RAR is matched to its catalog entry automatically.
+Interrupted downloads never enter the catalog.
 To validate a local F1 archive without publishing media:
 `XEMU_RAR_PATH=/path/to/game.rar node tests/rar-local.mjs`.
-The test raises its isolated Chrome profile's quota to 4 GiB for conversion.
+The default test exercises the normal browser quota, including session loading
+when persistent storage is refused. Set `XEMU_CACHE_TEST=1` to give the isolated
+test profile a 4 GiB quota and verify persistent caching separately.
+Directly selected games become the active disc for Load & Run. When caching
+fails, the converted disc remains playable for the current session; Cache can
+be retried from the local library.

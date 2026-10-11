@@ -6,6 +6,7 @@ import {chromePath} from './chrome.mjs';
 import {buildFlash,expectedChecksum} from './fixtures/test-flash.js';
 import assert from 'node:assert/strict';
 import {createQcow2} from './fixtures/qcow2.js';
+import {generatedRar} from './fixtures/rar.js';
 // Match Pages: project subpath, HTTPS-capable localhost, no COOP/COEP headers.
 const root=resolve('web'), prefix='/xemu_web/';
 const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.wasm':'application/wasm','.svg':'image/svg+xml','.json':'application/json'};
@@ -23,6 +24,9 @@ try{
   await page.waitForFunction(()=>crossOriginIsolated,{},{timeout:30000});
   await page.waitForFunction(()=>!document.getElementById('boot').disabled);
   assert.equal(await page.evaluate(()=>typeof SharedArrayBuffer),'function');
+  assert.equal(await page.locator('#library tr').count(),714,'Archive collection must be visible on first load');
+  assert.equal(await page.locator('#library button').filter({hasText:/^Play$/}).count(),714,'Every archive game must offer Play');
+  await page.locator('#library-source').selectOption('local');
   const release=await page.evaluate(async()=>{
     const info=await(await fetch('./release.json')).json();
     const worker=await(await fetch('./coi-serviceworker.js',{cache:'no-store'})).text();
@@ -50,11 +54,31 @@ try{
   assert.equal(await page.evaluate(()=>window.XemuLayout.getState().widgetWidth),300);
   assert.equal(await page.evaluate(()=>window.XemuLayout.getState().widgets.audio.collapsed),true);
   await page.locator('#discs').setInputFiles([{name:'Homebrew Test.xiso',mimeType:'application/octet-stream',buffer:Buffer.alloc(1024)}]);
-  await page.locator('#library button').filter({hasText:'Import'}).click();
+  await page.locator('#library button').filter({hasText:'Cache'}).click();
   await page.waitForFunction(()=>document.getElementById('library').textContent.includes('Saved in browser'));
-  await page.reload();await page.waitForFunction(()=>document.getElementById('library-count-badge').textContent==='1 game');
+  await page.reload();await page.waitForFunction(()=>!document.getElementById('boot').disabled);await page.locator('#library-source').selectOption('local');await page.waitForFunction(()=>document.getElementById('library-count-badge').textContent==='1 game');
   await page.locator('#library-search').fill('missing');assert.equal(await page.locator('#library tr').count(),0);
   await page.locator('#library-search').fill('homebrew');assert.equal(await page.locator('#library tr').count(),1);
+  // Catalog Play downloads, converts and caches a generated Xbox RAR.
+  let archiveDownloads=0;const rar=generatedRar();
+  await page.route('https://archive.org/**/mxogcx-xbox-ztm/F1.2001.USA.XBOX-ZTM.rar',async route=>{archiveDownloads++;await route.fulfill({status:200,contentType:'application/octet-stream',headers:{'content-length':String(rar.length)},body:rar});});
+  await page.locator('#library-source').selectOption('archive');await page.locator('#library-search').fill('F1.2001');
+  await page.locator('#library button').filter({hasText:/^Play$/}).click();
+  await page.waitForFunction(()=>document.getElementById('library').textContent.includes('Play cached'));
+  assert.equal(archiveDownloads,1);assert.match(await page.locator('#selected-disc').textContent(),/F1.2001/);
+  await page.reload();await page.waitForFunction(()=>!document.getElementById('boot').disabled);
+  await page.locator('#library-source').selectOption('archive');await page.locator('#library-search').fill('F1.2001');
+  await page.locator('#library button').filter({hasText:'Play cached'}).click();
+  await page.waitForFunction(()=>document.getElementById('status').textContent.includes('MCPX'));
+  assert.equal(archiveDownloads,1,'Cached Play must not redownload or extract');
+  await page.route('https://archive.org/**/mxogcx-xbox-ztm/F1.2002.EUR.XBOX-ZTM.rar',route=>route.fulfill({status:401,body:'Sign in required'}));
+  await page.locator('#library-search').fill('F1.2002');await page.locator('#library button').filter({hasText:/^Play$/}).click();
+  await page.waitForFunction(()=>document.getElementById('library-status').textContent.includes('HTTP 401'));
+  await page.route('https://archive.org/**/mxogcx-xbox-ztm/F1.2002.EUR.XBOX-ZTM.rar',route=>route.fulfill({status:200,contentType:'application/octet-stream',headers:{'content-length':String(rar.length)},body:rar}));
+  await page.locator('#library button').filter({hasText:/^Cache$/}).click();
+  await page.waitForFunction(()=>document.getElementById('status').textContent==='Game cached. Choose Play cached to run it.');
+  assert.match(await page.locator('#selected-disc').textContent(),/F1.2001/,'Cache must not change the active disc');
+  await page.locator('#library-source').selectOption('local');await page.locator('#library-search').fill('homebrew');
   await page.locator('#touch-mode').selectOption('on');await page.waitForFunction(()=>!document.getElementById('touch-controls').hidden);
   await page.screenshot({path:'tests/desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});await page.waitForTimeout(300);
@@ -115,5 +139,5 @@ try{
     assert.ok(await failurePage.locator('#boot').isEnabled(),'Failure must allow retry');
   } finally {await failureContext.close();}
 
-  console.log('Browser checks passed: Pages subpath isolation, persisted layout/library, search, touch UI, mobile layout, loading progress/error recovery, WebGL2 engine checksum and OPFS snapshot save/load/delete');
+  console.log('Browser checks passed: full catalog Play/Cache, cached replay, archive access errors, Pages subpath isolation, persisted layout/library, search, touch UI, mobile layout, loading progress/error recovery, WebGL2 engine checksum and OPFS snapshot save/load/delete');
 }finally{await browser.close();await new Promise(r=>server.close(r));}
