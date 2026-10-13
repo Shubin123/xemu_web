@@ -1,39 +1,39 @@
 {
   "schemaVersion": 1,
   "backend": "Shubin123/xemu_emscripten",
-  "backendCommit": "6c62f04741fcb67c55c5d262a4a7df1b04783072",
-  "sourceArchiveSha256": "8a622c20d10a7ee028c9c4717a0a250146b794a6f2f79c2f2780397ce072f16f",
-  "coreId": "sha256:102dc1cb69c320d68c5bcb8604ecd7ecce4a15cbcafbb813e0dcd26e612afe2d",
+  "backendCommit": "e29be2b4703b4d971bb3fcb57dfe8389a7ea64af",
+  "sourceArchiveSha256": "541ebeb1df1e684a1aaa8121d4d251f739738196e172adbbf5fee8eb4670d8db",
+  "coreId": "sha256:a1bcc6e7a176a25e0a8e4d5d84b692c78f44c2f72f0eaff015057d7add43bed3",
   "files": [
     {
       "path": "cores/xemu/xemu-core.build.json",
       "size": 667,
-      "sha256": "0bc465281fa1d7b40e8886bd411cad48ceaa2a5b58c902f75ed153ecb0e3ccf9"
+      "sha256": "9494a10b8a92a43e20acc56acdf846ead0a100e510541221a7fb877ac804e384"
     },
     {
       "path": "cores/xemu/xemu-core.js",
-      "size": 294877,
-      "sha256": "e5a460f72d35416ba04cbfa2bbddc308f249229856088772ee04e22d16299550"
+      "size": 295218,
+      "sha256": "5b02d6b72b5dad9ff2a725b80247e8470a21c97048feec38c60ad57ff572619c"
     },
     {
       "path": "cores/xemu/xemu-core.wasm",
-      "size": 11762167,
-      "sha256": "102dc1cb69c320d68c5bcb8604ecd7ecce4a15cbcafbb813e0dcd26e612afe2d"
+      "size": 11793791,
+      "sha256": "a1bcc6e7a176a25e0a8e4d5d84b692c78f44c2f72f0eaff015057d7add43bed3"
     },
     {
       "path": "source/xemu-source.tar.gz.part00",
       "size": 33554432,
-      "sha256": "846d9fd6d0994a7fb29c6df9570def4cd0e901fbb93a906b54b307f597bd09d8"
+      "sha256": "58ea79a4b4b63eb53736b4a86817d53f41c0c666c688b695645797832d7d4f4f"
     },
     {
       "path": "source/xemu-source.tar.gz.part01",
       "size": 33554432,
-      "sha256": "6aace822fe201c3fde96dd7d48a41ef44b099d03dc97850cfa414ade03196e03"
+      "sha256": "86328367b4216d4e3e40d23e90cff1b155ae9b67496e0a96c18904a8b61241d6"
     },
     {
       "path": "source/xemu-source.tar.gz.part02",
-      "size": 25570806,
-      "sha256": "3fc9a2cc6e63411c104f672f3532c2bcfe7b10d195e8384aafbbcee310ad0326"
+      "size": 25613743,
+      "sha256": "5494d42b11351a74ef59851fc5985196ab3118d6e862d3c58afd1f3c0d595442"
     },
     {
       "path": "src/xemu-audio-worklet.js",
@@ -47,13 +47,13 @@
     },
     {
       "path": "src/xemu-core-worker.js",
-      "size": 8108,
-      "sha256": "bb01dee5a16f58241ef13966b87d737e5245eb4f17cee7038d793fce7f18a4db"
+      "size": 8833,
+      "sha256": "fefab9dd7f9cc8e12a7b8d3aed346f4fca2bfe39e1502a416bf8dc7000d7fc5f"
     },
     {
       "path": "src/xemu-host.js",
-      "size": 11559,
-      "sha256": "faf9c6d407693639ae270daf65379a89861bd9813fd9bf4aae89930e551ca8ff"
+      "size": 11966,
+      "sha256": "dbbb204d4c2930ce40405b7ee8d9a3b63d8d8f426b6000aca631aba4b0e5e9ef"
     },
     {
       "path": "src/xemu-opfs-fs.js",

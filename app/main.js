@@ -202,8 +202,8 @@ async function refreshStates(){
 $('save').onclick=action(async()=>{const title=selected?.name||'Dashboard';const name=`${title.replace(/[^a-zA-Z0-9._-]/g,'_')}-slot-${$('state-slot').value}`;await host.saveSnapshot(name);await refreshStates();status(`Saved ${name}`);});
 $('refresh').onclick=action(refreshStates);
 const clearInput=installInput(()=>host,report);
-let previousFrames=0;
-setInterval(()=>{const s=host?.getStats();if(s){const fps=Math.max(0,s.framesConsumed-previousFrames);previousFrames=s.framesConsumed;$('stats').textContent=` · ${fps} FPS · ${s.width}×${s.height} · audio queue ${s.audioQueuedFrames} frames`;}else{previousFrames=0;$('stats').textContent=' · Console off';}},1000);
+let previousFrames=0,previousFlips=0;
+setInterval(()=>{const s=host?.getStats();if(s){const fps=Math.max(0,s.framesConsumed-previousFrames);previousFrames=s.framesConsumed;const game=s.guestFlips===undefined?'':` · game ${Math.max(0,s.guestFlips-previousFlips)} FPS`;previousFlips=s.guestFlips||0;$('stats').textContent=` · ${fps} FPS${game} · ${s.width}×${s.height} · audio queue ${s.audioQueuedFrames} frames`;}else{previousFrames=previousFlips=0;$('stats').textContent=' · Console off';}},1000);
 window.addEventListener('beforeunload',()=>host?.terminate());
 busy=true;controls();
 try{catalog=await readCatalog();discs=[...catalog.discs];for(const [kind,entry]of Object.entries(catalog.console))labelFile(kind,entry.name);await updateStorage();showCachedConsole();if(['mcpx','flash','hdd'].every(kind=>catalog.console[kind]))status('Console files cached on this device. Choose a game to play.');}catch(e){report(e);}

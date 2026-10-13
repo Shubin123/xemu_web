@@ -24,7 +24,7 @@ export const Buttons = Object.freeze({
 // Axis order matches ui/xemu-input.h: triggers, left stick, right stick.
 export const Axes = Object.freeze({LTRIG: 0, RTRIG: 1, LSTICK_X: 2, LSTICK_Y: 3, RSTICK_X: 4, RSTICK_Y: 5});
 
-const STATS = {presented: 0, consumed: 1, maxInflight: 2, vblanks: 3, width: 4, height: 5, paused: 6, running: 7};
+const STATS = {presented: 0, consumed: 1, maxInflight: 2, vblanks: 3, width: 4, height: 5, paused: 6, running: 7, guestFlips: 8};
 const RING = {write: 0, read: 1, capacity: 2, rate: 3, active: 4, latency: 5, underruns: 6, overruns: 7};
 
 export class XemuHost extends EventTarget {
@@ -47,8 +47,15 @@ export class XemuHost extends EventTarget {
     this._ready = null;
   }
 
-  /** Starts the core. Resolves once shared memory is available. */
-  boot({files = {}, settings = {}, args = [], wasmBinary, echoLog = false, jit = true} = {}) {
+  /**
+   * Starts the core. Resolves once shared memory is available.
+   * memoryOrder: guest memory barriers in compiled code. 'auto' (default)
+   * drops them on x86 hosts, where they are redundant; 'strict' always keeps
+   * them; 'relaxed' always drops them (faster on ARM, but device threads may
+   * observe guest memory writes out of order).
+   */
+  boot({files = {}, settings = {}, args = [], wasmBinary, echoLog = false, jit = true,
+        memoryOrder = 'auto'} = {}) {
     if (this.worker) throw new Error('Already booted');
     this.worker = new Worker(this.workerUrl, {type: 'module', name: 'xemu-core'});
     this.worker.onmessage = e => this._onWorkerMessage(e.data);
@@ -65,7 +72,7 @@ export class XemuHost extends EventTarget {
       this._readyResolve = resolve;
       this._readyReject = reject;
     });
-    this.worker.postMessage({type: 'boot', coreUrl: this.coreUrl, files, settings, args, wasmBinary, echoLog, jit}, transfer);
+    this.worker.postMessage({type: 'boot', coreUrl: this.coreUrl, files, settings, args, wasmBinary, echoLog, jit, memoryOrder}, transfer);
     return this._ready;
   }
 
@@ -103,7 +110,7 @@ export class XemuHost extends EventTarget {
       this.layout = msg.layout;
       this.u32 = new Uint32Array(this.memory.buffer);
       this.i32 = new Int32Array(this.memory.buffer);
-      this.stats = new Uint32Array(this.memory.buffer, this.ptr.stats, 8);
+      this.stats = new Uint32Array(this.memory.buffer, this.ptr.stats, 9);
       this._readyResolve?.(msg);
     } else if (msg.type === 'error' && this._readyReject && !this.memory) {
       this._readyReject(new Error(msg.message));
@@ -241,6 +248,7 @@ export class XemuHost extends EventTarget {
       width: Atomics.load(this.stats, STATS.width),
       height: Atomics.load(this.stats, STATS.height),
       running: Atomics.load(this.stats, STATS.running) === 1,
+      guestFlips: Atomics.load(this.stats, STATS.guestFlips),
       audioQueuedFrames: (Atomics.load(ring, RING.write) - Atomics.load(ring, RING.read)) >>> 0,
       audioUnderruns: Atomics.load(ring, RING.underruns),
       audioOverruns: Atomics.load(ring, RING.overruns),

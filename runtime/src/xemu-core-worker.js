@@ -155,6 +155,9 @@ async function boot(msg) {
   send({type: 'ready', memory, ptr, layout, loadMs: performance.now() - started});
 
   if (msg.jit === false && Module._tci_wasm_jit_set_enabled) Module._tci_wasm_jit_set_enabled(0);
+  const fences = await memoryFences(msg.memoryOrder);
+  if (!fences && Module._tci_wasm_jit_set_fences) Module._tci_wasm_jit_set_fences(0);
+  send({type: 'diag', stage: 'memory order', fences});
   const args = ['-config_path', CORE_PATHS.config, ...(msg.args || [])];
   let rc;
   try {
@@ -163,6 +166,20 @@ async function boot(msg) {
     send({type: 'diag', stage: 'callMain threw', message: String(err && err.stack || err)});
   }
   send({type: 'diag', stage: 'main started', rc, ...poolState()});
+}
+
+// Guest memory barriers in compiled code: 'strict' keeps them, 'relaxed'
+// drops them, 'auto' drops them on x86 hosts, whose ordering already matches
+// the guest's, and keeps them elsewhere (ARM) or when the host is unknown.
+async function memoryFences(order = 'auto') {
+  if (order === 'strict') return true;
+  if (order === 'relaxed') return false;
+  try {
+    const {architecture} = await navigator.userAgentData.getHighEntropyValues(['architecture']);
+    return architecture !== 'x86';
+  } catch {
+    return true;
+  }
 }
 
 function poolState() {
