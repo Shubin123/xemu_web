@@ -30,7 +30,8 @@ class XemuAudioProcessor extends AudioWorkletProcessor {
     if (this.step === 1) {
       const take = Math.min(n, available);
       for (let i = 0; i < take; i++) {
-        const at = ((read + i) % this.capacity) * 2;
+        // Wrap the free-running uint32 counter before indexing the ring.
+        const at = (((read + i) >>> 0) % this.capacity) * 2;
         left[i] = this.samples[at] * scale;
         right[i] = this.samples[at + 1] * scale;
       }

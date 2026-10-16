@@ -39,6 +39,7 @@ const quote = value => JSON.stringify(String(value));
 export function buildConfigToml(settings = {}, files = {}) {
   const s = {...DEFAULT_SETTINGS, ...settings};
   const scale = Math.max(1, Math.min(4, Math.round(Number(s.surfaceScale) || 1)));
+  const volume = Number(s.volume);
   const lines = [
     '[general]',
     'show_welcome = false',
@@ -68,7 +69,7 @@ export function buildConfigToml(settings = {}, files = {}) {
     `use_dsp = ${s.useDsp ? 'true' : 'false'}`,
     'use_dsp_jit = false',
     `hrtf = ${s.hrtf ? 'true' : 'false'}`,
-    `volume_limit = ${Math.max(0, Math.min(1, Number(s.volume)))}`,
+    `volume_limit = ${Number.isNaN(volume) ? DEFAULT_SETTINGS.volume : Math.max(0, Math.min(1, volume))}`,
     '',
     '[audio.vp]',
     `num_workers = ${Math.max(1, Math.min(8, Math.round(Number(s.vpWorkers) || 1)))}`,

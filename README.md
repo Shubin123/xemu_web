@@ -191,3 +191,10 @@ failure rollback and existing HDD preservation checks. Real console/F1
 diagnostics are opt-in with
 `XEMU_RAR_PATH=/path/to/game.rar node tests/console-game.mjs`; inspect its
 captured frames as well as the log to assess actual gameplay.
+
+The imported runtime includes the backend's x87 reference mode, diagnostic
+counters and instruction/state/fault regression suites in the matching source
+archive. Normal website boots use fast mode with experimental x87 caching and
+profiling disabled. The browser suite verifies those defaults against the shipped
+core. For maintainer test and benchmark commands, see the backend's
+[x87 validation guide](https://github.com/Shubin123/xemu_emscripten/blob/main/docs/x87-web.md).

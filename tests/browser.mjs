@@ -101,6 +101,7 @@ try{
     const wasmBinary=await downloadEngine();
     const progress=document.getElementById('progress').value;
     const {XemuHost}=await import('./src/xemu-host.js');const host=new XemuHost({canvas:document.getElementById('screen')});
+    let x87Mode;host.addEventListener('diag',e=>{if(e.detail.stage==='x87')x87Mode=e.detail;});
     const {importFile}=await import('./storage.js');
     const flash=await importFile(new File([new Uint8Array(bytes)],'test-flash.bin'));
     const hdd=await importFile(new File([new Uint8Array(disk)],'test-hdd.qcow2'));
@@ -126,7 +127,7 @@ try{
       const disc=new File([new Uint8Array(17*1024*1024)], "Tony Hawk's test.iso");
       await host.loadDisc(disc,disc.name);await host.ejectDisc();
       await host.loadDisc(disc,disc.name);await host.ejectDisc();
-      await host.saveSnapshot('pages-test');const snapshots=await host.listSnapshots();await host.loadSnapshot('pages-test');await host.deleteSnapshot('pages-test');return {log,expected,snapshots,progress,input,stats:host.getStats()};}finally{clearTimeout(timer);hideLoading();host.terminate();}
+      await host.saveSnapshot('pages-test');const snapshots=await host.listSnapshots();await host.loadSnapshot('pages-test');await host.deleteSnapshot('pages-test');return {log,expected,snapshots,progress,input,stats:host.getStats(),x87Mode,x87Stats:host.getX87Stats(),x87JitStats:host.getX87JitStats()};}finally{clearTimeout(timer);hideLoading();host.terminate();}
   },{bytes:[...fixture.flash],disk:[...createQcow2()],expected:fixture.checksumHex});
   assert.deepEqual(result.input.map(p=>p.axes),[[0,0,0,32767,0,0],[0,0,-32767,0,0,0],[0,0,0,-32767,0,0],[0,0,32767,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0]],'WASD must reach the engine shared controller memory and release to neutral');
   assert.ok(result.input.every(p=>p.buttons===0),'WASD must not also press face buttons');
@@ -134,6 +135,10 @@ try{
   assert.ok(result.log.includes(`XEMUWEB:DONE ${result.expected}`),result.log);
   assert.ok(result.snapshots.some(s=>s.name==='pages-test'),'OPFS snapshot missing');
   assert.ok(result.stats.framesConsumed>0,'No frame delivered');
+  assert.deepEqual(result.x87Mode,{type:'diag',stage:'x87',mode:'fast',cache:false,profile:false},'Published runtime must acknowledge safe default x87 settings');
+  assert.ok(result.x87Stats&&result.x87JitStats,'Published core must expose the matching x87 diagnostic API');
+  assert.ok(Object.values(result.x87Stats).every(c=>c.attempts===0&&c.accepted===0),'Diagnostic atomics must remain off for normal boots');
+  assert.ok(Object.values(result.x87JitStats).every(n=>n===0),'JIT profiling must remain off for normal boots');
   const framePng=await page.locator('#screen').evaluate(canvas=>canvas.toDataURL('image/png'));
   await writeFile('tests/engine-framebuffer.png',Buffer.from(framePng.split(',')[1],'base64'));
   if(!process.env.TARGET_URL)for(const asset of ['release.json','src/xemu-core-worker.js','cores/xemu/xemu-core.wasm'])

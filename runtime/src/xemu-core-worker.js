@@ -151,6 +151,18 @@ async function boot(msg) {
   ['padSize', 'padButtons', 'padAxis', 'padRumble', 'audioSamples', 'statsLastPresent', 'audioFrames']
     .forEach((key, i) => { layout[key] = Module._xemu_web_layout(i); });
 
+  const reference = msg.x87 === 'reference';
+  if (msg.x87 && !['fast', 'reference'].includes(msg.x87)) throw new Error('Invalid x87 mode');
+  if (Module._xemu_web_x87_configure && Module._tci_wasm_jit_set_x87_options) {
+    ptr.x87 = Module._xemu_web_x87_configure(reference ? 1 : 0, msg.x87Profile ? 1 : 0);
+    ptr.x87Jit = Module._tci_wasm_jit_set_x87_options(reference ? 1 : 0,
+      msg.x87Cache ? 1 : 0, msg.x87Profile ? 1 : 0);
+  } else if (reference || msg.x87Cache || msg.x87Profile) {
+    throw new Error('This core does not support x87 diagnostics; rebuild the core');
+  }
+  send({type: 'diag', stage: 'x87', mode: reference ? 'reference' : 'fast',
+        cache: !reference && !!msg.x87Cache, profile: !!msg.x87Profile});
+
   // Shared memory goes to the page before main() so input/audio work at once.
   send({type: 'ready', memory, ptr, layout, loadMs: performance.now() - started});
 

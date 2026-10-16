@@ -49,13 +49,17 @@ export class XemuHost extends EventTarget {
 
   /**
    * Starts the core. Resolves once shared memory is available.
+   * x87: 'fast' (default) or diagnostic 'reference' (QEMU helpers, no x87
+   * inlining). x87Cache enables experimental write-through JIT locals;
+   * x87Profile enables per-operation attempt/accept counters.
    * memoryOrder: guest memory barriers in compiled code. 'auto' (default)
    * drops them on x86 hosts, where they are redundant; 'strict' always keeps
    * them; 'relaxed' always drops them (faster on ARM, but device threads may
    * observe guest memory writes out of order).
    */
   boot({files = {}, settings = {}, args = [], wasmBinary, echoLog = false, jit = true,
-        memoryOrder = 'auto'} = {}) {
+        memoryOrder = 'auto', x87 = 'fast', x87Cache = false, x87Profile = false} = {}) {
+    if (!['fast', 'reference'].includes(x87)) throw new Error('Invalid x87 mode');
     if (this.worker) throw new Error('Already booted');
     this.worker = new Worker(this.workerUrl, {type: 'module', name: 'xemu-core'});
     this.worker.onmessage = e => this._onWorkerMessage(e.data);
@@ -72,7 +76,7 @@ export class XemuHost extends EventTarget {
       this._readyResolve = resolve;
       this._readyReject = reject;
     });
-    this.worker.postMessage({type: 'boot', coreUrl: this.coreUrl, files, settings, args, wasmBinary, echoLog, jit, memoryOrder}, transfer);
+    this.worker.postMessage({type: 'boot', coreUrl: this.coreUrl, files, settings, args, wasmBinary, echoLog, jit, memoryOrder, x87, x87Cache, x87Profile}, transfer);
     return this._ready;
   }
 
@@ -236,6 +240,21 @@ export class XemuHost extends EventTarget {
     if (!this.u32) return [0, 0];
     const base = (this.ptr.pads + slot * this.layout.padSize + this.layout.padRumble) >> 2;
     return [Atomics.load(this.u32, base), Atomics.load(this.u32, base + 1)];
+  }
+
+  getX87Stats() {
+    if (!this.memory || !this.ptr?.x87) return null;
+    const counters = new Uint32Array(this.memory.buffer, this.ptr.x87, 16);
+    return Object.fromEntries(['load', 'store', 'add', 'sub', 'mul', 'div', 'sqrt']
+      .map((name, i) => [name, {attempts: Atomics.load(counters, i * 2),
+        accepted: Atomics.load(counters, i * 2 + 1)}]));
+  }
+
+  getX87JitStats() {
+    if (!this.memory || !this.ptr?.x87Jit) return null;
+    const counters = new Uint32Array(this.memory.buffer, this.ptr.x87Jit, 4);
+    return Object.fromEntries(['compiled', 'rejected', 'codeBytes', 'compileMicros']
+      .map((name, i) => [name, Atomics.load(counters, i)]));
   }
 
   getStats() {
